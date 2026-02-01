@@ -915,6 +915,10 @@
                 var preview = text.replace(/[\r\n]+/g, ' ').trim();
                 preview = preview.length > 40 ? preview.substring(0, 40) + '...' : preview;
                 showToast('Copied: ' + preview);
+                // Update lead text with copied content, capped at 160 characters
+                var leadPreview = text.replace(/[\r\n]+/g, ' ').trim();
+                leadPreview = leadPreview.length > 160 ? leadPreview.substring(0, 160) + '...' : leadPreview;
+                document.querySelector('.lead').textContent = 'Copied: ' + leadPreview;
                 $(cell).addClass('copied');
                 setTimeout(function() {
                     $(cell).removeClass('copied');
