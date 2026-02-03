@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CSV Loader</title>
+    <title>CSV / Excel Loader</title>
     <link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.0.0-beta/css/bootstrap.min.css'>
     <link rel='stylesheet' href='https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap4.min.css'>
     <style>
@@ -588,6 +588,117 @@
             background: #555;
         }
 
+        /* Sheet Picker Modal */
+        .sheet-picker-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .sheet-picker-overlay.open {
+            display: flex;
+        }
+
+        .sheet-picker-modal {
+            background: #1a1a2e;
+            border: 1px solid #333;
+            border-radius: 12px;
+            width: 360px;
+            max-height: 80vh;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        }
+
+        .sheet-picker-header {
+            padding: 15px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: #a8d8ea;
+        }
+
+        .sheet-picker-header button {
+            background: transparent;
+            border: none;
+            color: #888;
+            cursor: pointer;
+            font-size: 18px;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        .sheet-picker-header button:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .sheet-picker-list {
+            padding: 10px;
+            overflow-y: auto;
+            max-height: calc(80vh - 60px);
+        }
+
+        .sheet-picker-item {
+            padding: 12px 16px;
+            cursor: pointer;
+            border-radius: 6px;
+            margin-bottom: 4px;
+            color: #fff;
+            transition: background-color 0.15s;
+        }
+
+        .sheet-picker-item:hover {
+            background: rgba(59, 130, 246, 0.3);
+        }
+
+        .sheet-picker-item:active {
+            background: #3B82F6;
+        }
+
+        /* Light mode sheet picker */
+        body.light-mode .sheet-picker-modal {
+            background: #fff;
+            border-color: #ddd;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+        }
+
+        body.light-mode .sheet-picker-header {
+            border-bottom-color: #ddd;
+            color: #1e40af;
+        }
+
+        body.light-mode .sheet-picker-header button {
+            color: #999;
+        }
+
+        body.light-mode .sheet-picker-header button:hover {
+            color: #333;
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        body.light-mode .sheet-picker-item {
+            color: #333;
+        }
+
+        body.light-mode .sheet-picker-item:hover {
+            background: rgba(59, 130, 246, 0.1);
+        }
+
+        body.light-mode .sheet-picker-item:active {
+            background: #3B82F6;
+            color: #fff;
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
             .sidebar {
@@ -630,11 +741,11 @@
     <button class="theme-toggle-btn" id="themeToggle" onclick="toggleTheme()">&#9788; Light</button>
 
     <div class="main-content">
-        <h1>CSV Table Loader</h1>
-        <p class="lead">Upload a CSV file or load a saved table. Click any cell to copy its content.</p>
+        <h1>CSV / Excel Table Loader</h1>
+        <p class="lead">Upload a CSV or Excel file, or load a saved table. Click any cell to copy its content.</p>
 
         <div class="file-input-wrapper">
-            <input type="file" id="csv-file" name="files" accept=".csv" />
+            <input type="file" id="csv-file" name="files" accept=".csv,.xlsx,.xls" />
         </div>
 
         <div id="table-container">
@@ -642,10 +753,22 @@
         </div>
     </div>
 
+    <!-- Sheet Picker Modal -->
+    <div id="sheetPickerOverlay" class="sheet-picker-overlay" onclick="closeSheetPicker()">
+        <div class="sheet-picker-modal" onclick="event.stopPropagation()">
+            <div class="sheet-picker-header">
+                <span>Select a Sheet</span>
+                <button onclick="closeSheetPicker()">&#10005;</button>
+            </div>
+            <div class="sheet-picker-list" id="sheetPickerList"></div>
+        </div>
+    </div>
+
     <div id="toast" class="toast-notification">Copied!</div>
 
     <script src='https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js'></script>
     <script src='https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js'></script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'></script>
     <script src='https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js'></script>
     <script src='https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap4.min.js'></script>
 
@@ -991,22 +1114,73 @@
             renderTableFromData(papa.data);
         }
 
+        var pendingWorkbook = null;
+
         function handleFileSelect(evt) {
             var file = evt.target.files[0];
+            if (!file) return;
             originalData = {};
             selectedFile = null;
 
-            Papa.parse(file, {
-                header: false,
-                delimiter: ",",
-                dynamicTyping: true,
-                skipEmptyLines: true,
-                complete: function(results) {
-                    console.log(results);
-                    renderTable(results);
-                    renderFileList();
-                }
-            });
+            var ext = file.name.split('.').pop().toLowerCase();
+
+            if (ext === 'xlsx' || ext === 'xls') {
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    var data = new Uint8Array(e.target.result);
+                    var workbook = XLSX.read(data, { type: 'array' });
+                    var sheetNames = workbook.SheetNames;
+
+                    if (sheetNames.length === 1) {
+                        loadSheet(workbook, sheetNames[0]);
+                    } else {
+                        pendingWorkbook = workbook;
+                        showSheetPicker(sheetNames);
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+            } else {
+                Papa.parse(file, {
+                    header: false,
+                    delimiter: ",",
+                    dynamicTyping: true,
+                    skipEmptyLines: true,
+                    complete: function(results) {
+                        console.log(results);
+                        renderTable(results);
+                        renderFileList();
+                    }
+                });
+            }
+        }
+
+        function loadSheet(workbook, sheetName) {
+            var ws = workbook.Sheets[sheetName];
+            var data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+            currentTableData = data;
+            renderTableFromData(data);
+            renderFileList();
+        }
+
+        function showSheetPicker(sheetNames) {
+            var listEl = document.getElementById('sheetPickerList');
+            listEl.innerHTML = sheetNames.map(function(name) {
+                return '<div class="sheet-picker-item" onclick="pickSheet(\'' + name.replace(/'/g, "\\'") + '\')">' +
+                    name + '</div>';
+            }).join('');
+            document.getElementById('sheetPickerOverlay').classList.add('open');
+        }
+
+        function closeSheetPicker() {
+            document.getElementById('sheetPickerOverlay').classList.remove('open');
+            pendingWorkbook = null;
+        }
+
+        function pickSheet(sheetName) {
+            if (pendingWorkbook) {
+                loadSheet(pendingWorkbook, sheetName);
+                closeSheetPicker();
+            }
         }
 
         // ============ THEME TOGGLE ============
