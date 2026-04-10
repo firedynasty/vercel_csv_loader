@@ -1279,10 +1279,16 @@
 
         function loadSheet(workbook, sheetName) {
             var ws = workbook.Sheets[sheetName];
-            var data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
-            currentTableData = data;
-            renderTableFromData(data);
-            renderFileList();
+            var csv = XLSX.utils.sheet_to_csv(ws);
+            Papa.parse(csv, {
+                header: false,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    currentTableData = results.data;
+                    renderTableFromData(results.data);
+                    renderFileList();
+                }
+            });
         }
 
         function showSheetPicker(sheetNames) {
