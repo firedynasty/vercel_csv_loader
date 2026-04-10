@@ -93,222 +93,6 @@
             opacity: 0.4;
         }
 
-        /* Sidebar Styles */
-        .sidebar {
-            position: fixed;
-            left: 0;
-            top: 0;
-            width: 280px;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            border-right: 1px solid #333;
-            z-index: 1001;
-            background: #1a1a2e;
-            transform: translateX(-100%);
-            transition: transform 0.3s ease;
-        }
-
-        .sidebar.open {
-            transform: translateX(0);
-        }
-
-        .sidebar-header {
-            padding: 15px 10px;
-            font-size: 14px;
-            font-weight: bold;
-            border-bottom: 1px solid #333;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: #0d0d1a;
-            color: #4da6ff;
-        }
-
-        .sidebar-header button {
-            background: transparent;
-            border: none;
-            cursor: pointer;
-            padding: 5px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: inherit;
-            font-size: 16px;
-        }
-
-        .sidebar-access-code {
-            padding: 10px;
-            border-bottom: 1px solid #333;
-        }
-
-        .sidebar-access-code input {
-            width: 80px;
-            padding: 8px 12px;
-            font-size: 14px;
-            border: 2px solid #ff9800;
-            border-radius: 6px;
-            background: #2a2a2a;
-            color: #fff;
-            outline: none;
-        }
-
-        .sidebar-access-code span {
-            margin-left: 8px;
-            font-size: 12px;
-            color: #888;
-        }
-
-        .sidebar-new-file-btn {
-            margin: 10px;
-            padding: 12px 16px;
-            background: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 14px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-
-        .sidebar-new-file-btn:hover {
-            background: #45a049;
-        }
-
-        .sidebar-file-list {
-            flex: 1;
-            overflow-y: auto;
-            padding: 10px;
-        }
-
-        .sidebar-file-item {
-            margin-bottom: 8px;
-            padding: 10px;
-            background: #2c2c3e;
-            border-radius: 4px;
-            cursor: pointer;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            color: white;
-        }
-
-        .sidebar-file-item.selected {
-            background: #3B82F6;
-        }
-
-        .sidebar-file-item:hover {
-            background: #3d3d52;
-        }
-
-        .sidebar-file-item.selected:hover {
-            background: #2563EB;
-        }
-
-        .sidebar-file-name {
-            flex: 1;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            font-size: 13px;
-        }
-
-        .sidebar-file-actions {
-            display: flex;
-            gap: 4px;
-        }
-
-        .sidebar-file-actions button {
-            padding: 4px 8px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-        }
-
-        .sidebar-edit-btn {
-            background: #2196F3;
-            color: white;
-        }
-
-        .sidebar-delete-btn {
-            background: #f44336;
-            color: white;
-        }
-
-        .sidebar-refresh-btn {
-            margin: 10px;
-            padding: 10px 16px;
-            background: #2196F3;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 13px;
-            cursor: pointer;
-        }
-
-        .sidebar-refresh-btn:hover {
-            background: #1976D2;
-        }
-
-        .sidebar-no-files {
-            padding: 20px;
-            color: #888;
-        }
-
-        .sidebar-rename-input {
-            flex: 1;
-            padding: 4px;
-            background: #1a1a2e;
-            border: 1px solid #444;
-            border-radius: 3px;
-            color: white;
-            font-size: 12px;
-        }
-
-        .sidebar-rename-confirm {
-            padding: 4px 8px;
-            background: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 3px;
-            cursor: pointer;
-            font-size: 11px;
-        }
-
-        .sidebar-rename-cancel {
-            padding: 4px 8px;
-            background: #666;
-            color: white;
-            border: none;
-            border-radius: 3px;
-            cursor: pointer;
-            font-size: 11px;
-        }
-
-        .sidebar-toggle-btn {
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            z-index: 1000;
-            padding: 8px 16px;
-            background: #2196F3;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-        }
-
-        .sidebar-toggle-btn:hover {
-            background: #1976D2;
-        }
-
-        .sidebar.open ~ .sidebar-toggle-btn {
-            left: 290px;
-        }
-
         /* Main content */
         .main-content {
             padding: 20px;
@@ -607,51 +391,6 @@
             color: #fff !important;
         }
 
-        body.light-mode .sidebar {
-            background: #f8f9fa;
-            border-right: 1px solid #ddd;
-        }
-
-        body.light-mode .sidebar-header {
-            background: #e9ecef;
-            border-bottom: 1px solid #ddd;
-            color: #1e40af;
-        }
-
-        body.light-mode .sidebar-access-code {
-            border-bottom: 1px solid #ddd;
-        }
-
-        body.light-mode .sidebar-access-code input {
-            background: #fff;
-            color: #333;
-        }
-
-        body.light-mode .sidebar-file-item {
-            background: #fff;
-            color: #333;
-            border: 1px solid #ddd;
-        }
-
-        body.light-mode .sidebar-file-item:hover {
-            background: #e9ecef;
-        }
-
-        body.light-mode .sidebar-file-item.selected {
-            background: #3B82F6;
-            color: white;
-        }
-
-        body.light-mode .sidebar-no-files {
-            color: #666;
-        }
-
-        body.light-mode .sidebar-rename-input {
-            background: #fff;
-            border: 1px solid #ccc;
-            color: #333;
-        }
-
         body.light-mode h1 {
             color: #1e40af;
         }
@@ -810,14 +549,6 @@
 
         /* Responsive */
         @media (max-width: 768px) {
-            .sidebar {
-                width: 100%;
-            }
-            .sidebar.open ~ .sidebar-toggle-btn {
-                left: 10px;
-                top: auto;
-                bottom: 10px;
-            }
             .main-content {
                 padding: 15px;
                 padding-top: 60px;
@@ -826,32 +557,12 @@
     </style>
 </head>
 <body>
-    <!-- Sidebar -->
-    <div class="sidebar" id="sidebar">
-        <div class="sidebar-header">
-            <span>SAVED TABLES</span>
-            <button onclick="toggleSidebar()">&#10005;</button>
-        </div>
-        <div class="sidebar-access-code" id="accessCodeSection" style="display: none;">
-            <input type="text" id="accessCodeInput" placeholder="123" autocomplete="off">
-            <span>Access code</span>
-        </div>
-        <button class="sidebar-new-file-btn" onclick="saveCurrentTable()">&#128190; Save Current Table</button>
-        <div class="sidebar-file-list" id="fileList">
-            <div class="sidebar-no-files">No tables saved yet</div>
-        </div>
-        <button class="sidebar-refresh-btn" onclick="loadFiles()">Refresh</button>
-    </div>
-
-    <!-- Sidebar Toggle Button -->
-    <button class="sidebar-toggle-btn" id="sidebarToggle" onclick="toggleSidebar()">&#9776; Tables</button>
-
     <!-- Theme Toggle Button -->
     <button class="theme-toggle-btn" id="themeToggle" onclick="toggleTheme()">&#9788; Light</button>
 
     <div class="main-content">
         <h1>CSV / Excel Table Loader</h1>
-        <p class="lead">Upload a CSV or Excel file, or load a saved table. Click any cell to copy its content (or send to Dropbox when signed in).</p>
+        <p class="lead">Upload a CSV or Excel file. Click any cell to copy its content (or send to Dropbox when signed in).</p>
 
         <div class="file-input-wrapper">
             <input type="file" id="csv-file" name="files" accept=".csv,.xlsx,.xls" />
@@ -1020,254 +731,6 @@
     <script src='https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap4.min.js'></script>
 
     <script>
-        // ============ SIDEBAR & FILE MANAGEMENT ============
-        let files = {};
-        let selectedFile = null;
-        let editingFileName = null;
-        let currentTableData = null; // Store current table data for saving
-        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-
-        function toggleSidebar() {
-            const sidebar = document.getElementById('sidebar');
-            const toggleBtn = document.getElementById('sidebarToggle');
-            sidebar.classList.toggle('open');
-            if (sidebar.classList.contains('open')) {
-                toggleBtn.innerHTML = '&#9664; Hide';
-            } else {
-                toggleBtn.innerHTML = '&#9776; Tables';
-            }
-        }
-
-        async function loadFiles() {
-            try {
-                if (isLocalhost) {
-                    const storedFiles = localStorage.getItem('csv-tables');
-                    files = storedFiles ? JSON.parse(storedFiles) : {};
-                } else {
-                    const response = await fetch('/api/files');
-                    if (response.ok) {
-                        const data = await response.json();
-                        files = data.files || {};
-                    }
-                }
-                // Show access code section if not localhost
-                if (!isLocalhost) {
-                    document.getElementById('accessCodeSection').style.display = 'block';
-                }
-                renderFileList();
-            } catch (err) {
-                console.error('Error loading files:', err);
-            }
-        }
-
-        function renderFileList() {
-            const fileListEl = document.getElementById('fileList');
-            const filenames = Object.keys(files).sort();
-
-            if (filenames.length === 0) {
-                fileListEl.innerHTML = '<div class="sidebar-no-files">No tables saved yet</div>';
-                return;
-            }
-
-            fileListEl.innerHTML = filenames.map(filename => {
-                const isSelected = selectedFile === filename;
-                const isEditing = editingFileName === filename;
-
-                if (isEditing) {
-                    return `
-                        <div class="sidebar-file-item ${isSelected ? 'selected' : ''}">
-                            <input type="text" class="sidebar-rename-input" id="renameInput" value="${filename}" onkeypress="if(event.key==='Enter')confirmRename()">
-                            <button class="sidebar-rename-confirm" onclick="confirmRename()">&#10003;</button>
-                            <button class="sidebar-rename-cancel" onclick="cancelRename()">&#10005;</button>
-                        </div>
-                    `;
-                }
-
-                return `
-                    <div class="sidebar-file-item ${isSelected ? 'selected' : ''}" onclick="selectFile('${filename}')">
-                        <span class="sidebar-file-name">${filename}</span>
-                        <div class="sidebar-file-actions" onclick="event.stopPropagation()">
-                            <button class="sidebar-edit-btn" onclick="startRenameFile('${filename}')" title="Rename">&#9998;</button>
-                            <button class="sidebar-delete-btn" onclick="deleteFile('${filename}')" title="Delete">&#128465;</button>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        function saveCurrentTable() {
-            if (!currentTableData || currentTableData.length === 0) {
-                alert('No table data to save! Please load a CSV file first.');
-                return;
-            }
-
-            const filename = prompt('Enter a name for this table:', selectedFile || 'my-table');
-            if (!filename) return;
-
-            let finalName = filename.trim();
-            if (!finalName.endsWith('.json')) {
-                finalName += '.json';
-            }
-
-            saveFile(finalName, JSON.stringify(currentTableData));
-        }
-
-        async function saveFile(filename, content) {
-            try {
-                if (isLocalhost) {
-                    files[filename] = content;
-                    localStorage.setItem('csv-tables', JSON.stringify(files));
-                    selectedFile = filename;
-                    showToast('Table saved locally!');
-                } else {
-                    const accessCode = document.getElementById('accessCodeInput').value.trim();
-                    if (accessCode !== '123') {
-                        alert('Please enter access code "123" to save');
-                        return;
-                    }
-
-                    const response = await fetch('/api/files', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            filename: filename,
-                            content: content,
-                            accessCode: accessCode,
-                        }),
-                    });
-
-                    if (response.ok) {
-                        files[filename] = content;
-                        selectedFile = filename;
-                        showToast('Table saved!');
-                    } else {
-                        const data = await response.json();
-                        alert('Error saving: ' + (data.error || 'Unknown error'));
-                    }
-                }
-                renderFileList();
-            } catch (err) {
-                console.error('Error saving file:', err);
-                alert('Error saving file');
-            }
-        }
-
-        function selectFile(filename) {
-            selectedFile = filename;
-            const content = files[filename];
-
-            try {
-                const data = JSON.parse(content);
-                currentTableData = data;
-                renderTableFromData(data);
-            } catch (e) {
-                console.error('Error parsing saved table:', e);
-                alert('Error loading saved table');
-            }
-
-            renderFileList();
-        }
-
-        async function deleteFile(filename) {
-            if (!confirm(`Delete "${filename}"?`)) return;
-
-            try {
-                if (isLocalhost) {
-                    delete files[filename];
-                    localStorage.setItem('csv-tables', JSON.stringify(files));
-                    if (selectedFile === filename) {
-                        selectedFile = null;
-                    }
-                } else {
-                    const accessCode = document.getElementById('accessCodeInput').value.trim();
-                    if (accessCode !== '123') {
-                        alert('Please enter access code "123" to delete');
-                        return;
-                    }
-
-                    const response = await fetch(`/api/files?filename=${encodeURIComponent(filename)}`, {
-                        method: 'DELETE',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ accessCode: accessCode }),
-                    });
-
-                    if (response.ok) {
-                        delete files[filename];
-                        if (selectedFile === filename) {
-                            selectedFile = null;
-                        }
-                    } else {
-                        alert('Error deleting file');
-                        return;
-                    }
-                }
-                renderFileList();
-                showToast('Table deleted');
-            } catch (err) {
-                console.error('Error deleting file:', err);
-                alert('Error deleting file');
-            }
-        }
-
-        function startRenameFile(filename) {
-            editingFileName = filename;
-            renderFileList();
-            setTimeout(() => {
-                const input = document.getElementById('renameInput');
-                if (input) input.focus();
-            }, 0);
-        }
-
-        function cancelRename() {
-            editingFileName = null;
-            renderFileList();
-        }
-
-        async function confirmRename() {
-            const input = document.getElementById('renameInput');
-            let newName = input ? input.value.trim() : '';
-
-            if (!newName || newName === editingFileName) {
-                cancelRename();
-                return;
-            }
-
-            if (!newName.endsWith('.json')) {
-                newName += '.json';
-            }
-
-            if (files[newName]) {
-                alert('A table with this name already exists!');
-                return;
-            }
-
-            if (!isLocalhost) {
-                const accessCode = document.getElementById('accessCodeInput').value.trim();
-                if (accessCode !== '123') {
-                    alert('Please enter access code "123" to rename');
-                    return;
-                }
-            }
-
-            const content = files[editingFileName];
-
-            if (isLocalhost) {
-                delete files[editingFileName];
-                files[newName] = content;
-                localStorage.setItem('csv-tables', JSON.stringify(files));
-                if (selectedFile === editingFileName) {
-                    selectedFile = newName;
-                }
-            } else {
-                await saveFile(newName, content);
-                await deleteFile(editingFileName);
-                selectedFile = newName;
-            }
-
-            editingFileName = null;
-            renderFileList();
-        }
-
         // ============ TABLE FUNCTIONS ============
         var originalData = {};
 
@@ -1404,9 +867,10 @@
         }
 
         function renderTable(papa) {
-            currentTableData = papa.data;
             renderTableFromData(papa.data);
         }
+
+        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
         var pendingWorkbook = null;
         var currentWorkbook = null;
@@ -1415,7 +879,6 @@
             var file = evt.target.files[0];
             if (!file) return;
             originalData = {};
-            selectedFile = null;
             currentWorkbook = null;
             document.getElementById('chooseSheetBtn').style.display = 'none';
 
@@ -1447,7 +910,6 @@
                     complete: function(results) {
                         console.log(results);
                         renderTable(results);
-                        renderFileList();
                     }
                 });
             }
@@ -1460,9 +922,7 @@
                 header: false,
                 skipEmptyLines: true,
                 complete: function(results) {
-                    currentTableData = results.data;
                     renderTableFromData(results.data);
-                    renderFileList();
                 }
             });
         }
@@ -1579,7 +1039,6 @@
                 var workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
 
                 originalData = {};
-                selectedFile = null;
                 currentWorkbook = workbook;
                 document.getElementById('chooseSheetBtn').style.display = 'none';
 
@@ -1628,7 +1087,6 @@
         // ============ INITIALIZATION ============
         $(document).ready(async function() {
             $("#csv-file").change(handleFileSelect);
-            loadFiles();
             loadTheme();
             if (window._dropboxReady) { try { await window._dropboxReady; } catch {} }
             refreshDropboxBtn();
