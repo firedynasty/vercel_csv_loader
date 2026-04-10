@@ -353,6 +353,31 @@
             background: rgba(59, 130, 246, 0.1);
         }
 
+        .choose-sheet-btn {
+            background: rgba(59, 130, 246, 0.15);
+            border: 2px solid rgba(59, 130, 246, 0.5);
+            border-radius: 8px;
+            padding: 15px 20px;
+            color: #fff;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .choose-sheet-btn:hover {
+            background: rgba(59, 130, 246, 0.3);
+            border-color: #3B82F6;
+        }
+
+        body.light-mode .choose-sheet-btn {
+            color: #1a1a1a;
+            background: rgba(59, 130, 246, 0.1);
+        }
+
+        body.light-mode .choose-sheet-btn:hover {
+            background: rgba(59, 130, 246, 0.2);
+        }
+
         /* Table container */
         #table-container {
             background: rgba(255, 255, 255, 0.05);
@@ -746,6 +771,7 @@
 
         <div class="file-input-wrapper">
             <input type="file" id="csv-file" name="files" accept=".csv,.xlsx,.xls" />
+            <button id="chooseSheetBtn" class="choose-sheet-btn" onclick="reopenSheetPicker()" style="display:none;">&#128196; Choose Sheet</button>
         </div>
 
         <div id="table-container">
@@ -1115,12 +1141,15 @@
         }
 
         var pendingWorkbook = null;
+        var currentWorkbook = null;
 
         function handleFileSelect(evt) {
             var file = evt.target.files[0];
             if (!file) return;
             originalData = {};
             selectedFile = null;
+            currentWorkbook = null;
+            document.getElementById('chooseSheetBtn').style.display = 'none';
 
             var ext = file.name.split('.').pop().toLowerCase();
 
@@ -1134,7 +1163,9 @@
                     if (sheetNames.length === 1) {
                         loadSheet(workbook, sheetNames[0]);
                     } else {
+                        currentWorkbook = workbook;
                         pendingWorkbook = workbook;
+                        document.getElementById('chooseSheetBtn').style.display = 'inline-block';
                         showSheetPicker(sheetNames);
                     }
                 };
@@ -1180,6 +1211,13 @@
             if (pendingWorkbook) {
                 loadSheet(pendingWorkbook, sheetName);
                 closeSheetPicker();
+            }
+        }
+
+        function reopenSheetPicker() {
+            if (currentWorkbook) {
+                pendingWorkbook = currentWorkbook;
+                showSheetPicker(currentWorkbook.SheetNames);
             }
         }
 
