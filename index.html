@@ -6,6 +6,7 @@
     <title>CSV / Excel Loader</title>
     <link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.0.0-beta/css/bootstrap.min.css'>
     <link rel='stylesheet' href='https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap4.min.css'>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         * {
             margin: 0;
@@ -376,6 +377,89 @@
 
         body.light-mode .choose-sheet-btn:hover {
             background: rgba(59, 130, 246, 0.2);
+        }
+
+        .gsheets-wrapper {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .gsheets-wrapper input[type="text"] {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            padding: 8px 12px;
+            color: #fff;
+            font-size: 14px;
+            min-width: 200px;
+        }
+
+        .gsheets-wrapper input[type="text"]::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .gsheets-btn {
+            background: rgba(66, 133, 244, 0.2);
+            border: 2px solid rgba(66, 133, 244, 0.6);
+            border-radius: 6px;
+            padding: 8px 16px;
+            color: #fff;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .gsheets-btn:hover:not(:disabled) {
+            background: rgba(66, 133, 244, 0.35);
+        }
+
+        .gsheets-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .gsheets-status {
+            width: 100%;
+            text-align: center;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.7);
+            min-height: 16px;
+        }
+
+        body.light-mode .gsheets-wrapper {
+            background: rgba(0, 0, 0, 0.03);
+            border-color: rgba(0, 0, 0, 0.08);
+        }
+
+        body.light-mode .gsheets-wrapper input[type="text"] {
+            background: #fff;
+            border-color: rgba(0, 0, 0, 0.2);
+            color: #1a1a1a;
+        }
+
+        body.light-mode .gsheets-wrapper input[type="text"]::placeholder {
+            color: rgba(0, 0, 0, 0.4);
+        }
+
+        body.light-mode .gsheets-btn {
+            color: #1a1a1a;
+            background: rgba(66, 133, 244, 0.1);
+        }
+
+        body.light-mode .gsheets-btn:hover:not(:disabled) {
+            background: rgba(66, 133, 244, 0.2);
+        }
+
+        body.light-mode .gsheets-status {
+            color: rgba(0, 0, 0, 0.6);
         }
 
         /* Table container */
@@ -772,6 +856,14 @@
         <div class="file-input-wrapper">
             <input type="file" id="csv-file" name="files" accept=".csv,.xlsx,.xls" />
             <button id="chooseSheetBtn" class="choose-sheet-btn" onclick="reopenSheetPicker()" style="display:none;">&#128196; Choose Sheet</button>
+        </div>
+
+        <!-- Google Sheets -->
+        <div class="gsheets-wrapper">
+            <button class="gsheets-btn" id="gsheetsAuthBtn" onclick="gdriveSignIn()">Sign in with Google</button>
+            <input type="text" id="gsheetsSearchInput" placeholder="Spreadsheet name..." />
+            <button class="gsheets-btn" id="gsheetsSearchBtn" onclick="gdriveSearch()" disabled>Load</button>
+            <div class="gsheets-status" id="gsheetsStatus"></div>
         </div>
 
         <div id="table-container">
@@ -1218,6 +1310,108 @@
             if (currentWorkbook) {
                 pendingWorkbook = currentWorkbook;
                 showSheetPicker(currentWorkbook.SheetNames);
+            }
+        }
+
+        // ============ GOOGLE SHEETS ============
+        const GDRIVE_CLIENT_ID = '1095683227908-7ro25k16mprkf408i3lf583gti8v759b.apps.googleusercontent.com';
+        const GDRIVE_SCOPES = 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/spreadsheets.readonly';
+
+        let gdriveAccessToken = null;
+        let gdriveTokenClient = null;
+
+        function setGsheetsStatus(msg) {
+            document.getElementById('gsheetsStatus').textContent = msg || '';
+        }
+
+        function gdriveInitClient() {
+            if (window.google && window.google.accounts) {
+                gdriveTokenClient = window.google.accounts.oauth2.initTokenClient({
+                    client_id: GDRIVE_CLIENT_ID,
+                    scope: GDRIVE_SCOPES,
+                    callback: function(response) {
+                        if (response.access_token) {
+                            gdriveAccessToken = response.access_token;
+                            document.getElementById('gsheetsAuthBtn').textContent = 'Sign Out';
+                            document.getElementById('gsheetsSearchBtn').disabled = false;
+                            setGsheetsStatus('Signed in. Enter a name and click Load.');
+                        }
+                    },
+                });
+            }
+        }
+
+        var checkGoogle = setInterval(function() {
+            if (window.google && window.google.accounts) {
+                clearInterval(checkGoogle);
+                gdriveInitClient();
+            }
+        }, 200);
+
+        function gdriveSignIn() {
+            if (gdriveAccessToken) {
+                gdriveAccessToken = null;
+                document.getElementById('gsheetsAuthBtn').textContent = 'Sign in with Google';
+                document.getElementById('gsheetsSearchBtn').disabled = true;
+                setGsheetsStatus('Signed out');
+                return;
+            }
+            if (gdriveTokenClient) {
+                gdriveTokenClient.requestAccessToken();
+            } else {
+                setGsheetsStatus('Google API not loaded yet. Try again.');
+            }
+        }
+
+        async function gdriveSearch() {
+            var searchTerm = document.getElementById('gsheetsSearchInput').value.trim();
+            if (!searchTerm) { setGsheetsStatus('Enter a spreadsheet name'); return; }
+            try {
+                setGsheetsStatus('Searching...');
+                var query = encodeURIComponent("name contains '" + searchTerm + "' and trashed=false and mimeType='application/vnd.google-apps.spreadsheet'");
+                var resp = await fetch('https://www.googleapis.com/drive/v3/files?q=' + query + '&fields=files(id,name)&orderBy=name', {
+                    headers: { Authorization: 'Bearer ' + gdriveAccessToken }
+                });
+                if (!resp.ok) throw new Error('Search failed');
+                var data = await resp.json();
+                if (!data.files || data.files.length === 0) {
+                    setGsheetsStatus('No spreadsheet matching "' + searchTerm + '"');
+                    return;
+                }
+                var file = data.files[0];
+                setGsheetsStatus('Loading "' + file.name + '"...');
+                await loadGoogleSpreadsheet(file.id, file.name);
+            } catch (err) {
+                setGsheetsStatus('Error: ' + err.message);
+            }
+        }
+
+        async function loadGoogleSpreadsheet(fileId, fileName) {
+            try {
+                var exportMime = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+                var resp = await fetch('https://www.googleapis.com/drive/v3/files/' + fileId + '/export?mimeType=' + encodeURIComponent(exportMime), {
+                    headers: { Authorization: 'Bearer ' + gdriveAccessToken }
+                });
+                if (!resp.ok) throw new Error('Export failed');
+                var arrayBuffer = await resp.arrayBuffer();
+                var workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
+
+                originalData = {};
+                selectedFile = null;
+                currentWorkbook = workbook;
+                document.getElementById('chooseSheetBtn').style.display = 'none';
+
+                var sheetNames = workbook.SheetNames;
+                if (sheetNames.length === 1) {
+                    loadSheet(workbook, sheetNames[0]);
+                } else {
+                    pendingWorkbook = workbook;
+                    document.getElementById('chooseSheetBtn').style.display = 'inline-block';
+                    showSheetPicker(sheetNames);
+                }
+                setGsheetsStatus('Loaded "' + fileName + '" — ' + sheetNames.length + ' sheet(s)');
+            } catch (err) {
+                setGsheetsStatus('Error: ' + err.message);
             }
         }
 
