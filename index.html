@@ -176,22 +176,6 @@
             background: #45a049;
         }
 
-        .sidebar-dropbox-btn {
-            margin: 0 10px 10px 10px;
-            padding: 12px 16px;
-            background: #0061ff;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 14px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-
-        .sidebar-dropbox-btn:hover {
-            background: #004ccc;
-        }
-
         .sidebar-file-list {
             flex: 1;
             overflow-y: auto;
@@ -853,7 +837,6 @@
             <span>Access code</span>
         </div>
         <button class="sidebar-new-file-btn" onclick="saveCurrentTable()">&#128190; Save Current Table</button>
-        <button class="sidebar-dropbox-btn" id="dropboxBtn" onclick="handleDropboxClick()" oncontextmenu="return handleDropboxRightClick(event)" title="Sign in to Dropbox. Once signed in, clicking a cell sends it to your Dropbox clipboard instead of local clipboard. Right-click to sign out.">DB: Sign In</button>
         <div class="sidebar-file-list" id="fileList">
             <div class="sidebar-no-files">No tables saved yet</div>
         </div>
@@ -880,6 +863,7 @@
             <button class="gsheets-btn" id="gsheetsAuthBtn" onclick="gdriveSignIn()">Sign in with Google</button>
             <input type="text" id="gsheetsSearchInput" placeholder="Spreadsheet name..." />
             <button class="gsheets-btn" id="gsheetsSearchBtn" onclick="gdriveSearch()" disabled>Load</button>
+            <button class="gsheets-btn" id="dropboxBtn" onclick="handleDropboxClick()" oncontextmenu="return handleDropboxRightClick(event)" title="Sign in to Dropbox. Once signed in, clicking a cell sends it to your Dropbox clipboard instead of local clipboard. Right-click to sign out.">DB: Sign In</button>
             <div class="gsheets-status" id="gsheetsStatus"></div>
         </div>
 
