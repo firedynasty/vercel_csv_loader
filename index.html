@@ -1172,59 +1172,60 @@
 
         function renderTableFromData(data) {
             if (!data || data.length === 0) {
-                $('#table-container').html('<p>No data to display</p>');
+                document.getElementById('table-container').innerHTML = '<p>No data to display</p>';
                 return;
-            }
-
-            var numCols = data[0] ? data[0].length : 0;
-
-            var columns = [];
-            for (var i = 0; i < numCols; i++) {
-                (function(colIndex) {
-                    columns.push({
-                        title: 'Column ' + (colIndex + 1),
-                        render: function(cellData, type, row) {
-                            var value = row[colIndex];
-                            if (type === 'display') {
-                                var display = (value !== null && value !== undefined) ? String(value) : '';
-                                display = display.replace(/[\r\n]+/g, ' ').trim();
-                                return $('<div>').text(display).html();
-                            }
-                            return value;
-                        }
-                    });
-                })(i);
             }
 
             originalData = {};
             data.forEach(function(row, rowIndex) {
                 originalData[rowIndex] = {};
-                for (var colIndex = 0; colIndex < row.length; colIndex++) {
-                    originalData[rowIndex][colIndex] = row[colIndex] !== null && row[colIndex] !== undefined ? String(row[colIndex]) : '';
-                }
+                row.forEach(function(cell, colIndex) {
+                    originalData[rowIndex][colIndex] = cell !== null && cell !== undefined ? String(cell) : '';
+                });
             });
 
-            $('#table-container').html('<table id="csv-table" class="table table-bordered table-striped" style="width:100%"></table>');
+            var headerRow = data[0];
+            var bodyRows = data.slice(1);
 
-            var table = $('#csv-table').DataTable({
-                data: data,
-                columns: columns,
-                pageLength: 25,
-                scrollX: true
+            var html = '<div style="overflow-x:auto"><table id="csv-table" class="table table-bordered table-striped" style="width:100%"><thead><tr>';
+            headerRow.forEach(function(cell) {
+                var text = cell !== null && cell !== undefined ? String(cell) : '';
+                html += '<th data-value="' + escAttr(text) + '">' + escHtml(text) + '</th>';
+            });
+            html += '</tr></thead><tbody>';
+            bodyRows.forEach(function(row, rowIndex) {
+                html += '<tr>';
+                row.forEach(function(cell, colIndex) {
+                    var text = cell !== null && cell !== undefined ? String(cell) : '';
+                    html += '<td data-row="' + (rowIndex + 1) + '" data-col="' + colIndex + '">' + escHtml(text) + '</td>';
+                });
+                html += '</tr>';
+            });
+            html += '</tbody></table></div>';
+
+            document.getElementById('table-container').innerHTML = html;
+
+            document.querySelectorAll('#csv-table tbody td').forEach(function(td) {
+                td.addEventListener('click', function() {
+                    var r = parseInt(this.dataset.row);
+                    var c = parseInt(this.dataset.col);
+                    copyToClipboard(originalData[r][c], this);
+                });
             });
 
-            $('#csv-table tbody').on('click', 'td', function() {
-                var cell = table.cell(this);
-                var rowIndex = cell.index().row;
-                var colIndex = cell.index().column;
-                var originalValue = originalData[rowIndex][colIndex];
-                copyToClipboard(originalValue, this);
+            document.querySelectorAll('#csv-table thead th').forEach(function(th) {
+                th.addEventListener('click', function() {
+                    copyToClipboard(this.dataset.value, this);
+                });
             });
+        }
 
-            $('#csv-table thead').on('click', 'th', function() {
-                var text = $(this).text();
-                copyToClipboard(text, this);
-            });
+        function escHtml(str) {
+            return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        function escAttr(str) {
+            return str.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
         }
 
         function renderTable(papa) {
