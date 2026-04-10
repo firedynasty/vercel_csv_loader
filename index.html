@@ -1279,7 +1279,7 @@
 
         function loadSheet(workbook, sheetName) {
             var ws = workbook.Sheets[sheetName];
-            var data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+            var data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
             currentTableData = data;
             renderTableFromData(data);
             renderFileList();
