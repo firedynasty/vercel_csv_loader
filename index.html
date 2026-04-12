@@ -966,6 +966,32 @@
             document.getElementById('gsheetsStatus').textContent = msg || '';
         }
 
+        const GDRIVE_TOKEN_STORAGE_KEY = 'gdrive_access_token';
+        const GDRIVE_EXPIRY_STORAGE_KEY = 'gdrive_token_expiry';
+
+        function gdriveApplyToken(token, msg) {
+            gdriveAccessToken = token;
+            document.getElementById('gsheetsAuthBtn').textContent = 'Sign Out';
+            document.getElementById('gsheetsSearchBtn').disabled = false;
+            if (msg) setGsheetsStatus(msg);
+        }
+
+        function gdriveClearStoredToken() {
+            sessionStorage.removeItem(GDRIVE_TOKEN_STORAGE_KEY);
+            sessionStorage.removeItem(GDRIVE_EXPIRY_STORAGE_KEY);
+        }
+
+        function gdriveRestoreFromStorage() {
+            var token = sessionStorage.getItem(GDRIVE_TOKEN_STORAGE_KEY);
+            var expiry = parseInt(sessionStorage.getItem(GDRIVE_EXPIRY_STORAGE_KEY) || '0', 10);
+            if (!token) return;
+            if (expiry && Date.now() >= expiry) {
+                gdriveClearStoredToken();
+                return;
+            }
+            gdriveApplyToken(token, 'Signed in. Enter a name and click Load.');
+        }
+
         function gdriveInitClient() {
             if (window.google && window.google.accounts) {
                 gdriveTokenClient = window.google.accounts.oauth2.initTokenClient({
@@ -973,15 +999,17 @@
                     scope: GDRIVE_SCOPES,
                     callback: function(response) {
                         if (response.access_token) {
-                            gdriveAccessToken = response.access_token;
-                            document.getElementById('gsheetsAuthBtn').textContent = 'Sign Out';
-                            document.getElementById('gsheetsSearchBtn').disabled = false;
-                            setGsheetsStatus('Signed in. Enter a name and click Load.');
+                            var ttlMs = (parseInt(response.expires_in, 10) || 3600) * 1000;
+                            sessionStorage.setItem(GDRIVE_TOKEN_STORAGE_KEY, response.access_token);
+                            sessionStorage.setItem(GDRIVE_EXPIRY_STORAGE_KEY, String(Date.now() + ttlMs));
+                            gdriveApplyToken(response.access_token, 'Signed in. Enter a name and click Load.');
                         }
                     },
                 });
             }
         }
+
+        gdriveRestoreFromStorage();
 
         var checkGoogle = setInterval(function() {
             if (window.google && window.google.accounts) {
@@ -993,6 +1021,7 @@
         function gdriveSignIn() {
             if (gdriveAccessToken) {
                 gdriveAccessToken = null;
+                gdriveClearStoredToken();
                 document.getElementById('gsheetsAuthBtn').textContent = 'Sign in with Google';
                 document.getElementById('gsheetsSearchBtn').disabled = true;
                 setGsheetsStatus('Signed out');

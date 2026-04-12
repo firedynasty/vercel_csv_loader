@@ -1,0 +1,134 @@
+Debug: Google Sign-In Lost After Dropbox OAuth Redirect
+========================================================
+
+Symptom
+-------
+User signs into Google ("Sign in with Google" button flips to "Sign Out",
+search button enables). Then clicks "DB: Sign In" to authorize Dropbox.
+Dropbox uses a full-page OAuth redirect. When the page returns with
+?code=..., the Google state is gone: button says "Sign in with Google"
+again and the search button is disabled, as if Google had signed out.
+
+Root cause
+----------
+The Google access token was stored in a plain in-memory variable:
+
+    let gdriveAccessToken = null;  // index.html:962 (before fix)
+
+The Dropbox sign-in flow leaves the page entirely:
+
+    window.location.href = authUrl;  // index.html:674
+
+When the browser navigates back to the app, JS memory is reset, so
+gdriveAccessToken is null again. The Google UI was also only ever
+updated inside the token client callback, so on reload there was no
+path that could restore it — the user hadn't actually been signed out,
+the app just forgot.
+
+Fix
+---
+Persist the Google token in sessionStorage with an expiry, and restore
+it on page load before anything else touches the UI.
+
+- sessionStorage (not localStorage) so the token lives only for the tab
+  session. Closing the tab drops it. Matches Google's short-lived
+  access tokens and the Dropbox 'online' access type.
+- Store the expiry alongside the token using response.expires_in (in
+  seconds). On restore, if Date.now() >= expiry, clear the token and
+  treat the user as signed out.
+- On explicit sign-out, clear both sessionStorage keys so storage stays
+  in sync with the in-memory state.
+
+Changes in index.html
+---------------------
+1. Added storage keys + helpers (~line 969):
+
+     const GDRIVE_TOKEN_STORAGE_KEY = 'gdrive_access_token';
+     const GDRIVE_EXPIRY_STORAGE_KEY = 'gdrive_token_expiry';
+
+     function gdriveApplyToken(token, msg) {
+         gdriveAccessToken = token;
+         document.getElementById('gsheetsAuthBtn').textContent = 'Sign Out';
+         document.getElementById('gsheetsSearchBtn').disabled = false;
+         if (msg) setGsheetsStatus(msg);
+     }
+
+     function gdriveClearStoredToken() {
+         sessionStorage.removeItem(GDRIVE_TOKEN_STORAGE_KEY);
+         sessionStorage.removeItem(GDRIVE_EXPIRY_STORAGE_KEY);
+     }
+
+     function gdriveRestoreFromStorage() {
+         var token = sessionStorage.getItem(GDRIVE_TOKEN_STORAGE_KEY);
+         var expiry = parseInt(sessionStorage.getItem(GDRIVE_EXPIRY_STORAGE_KEY) || '0', 10);
+         if (!token) return;
+         if (expiry && Date.now() >= expiry) {
+             gdriveClearStoredToken();
+             return;
+         }
+         gdriveApplyToken(token, 'Signed in. Enter a name and click Load.');
+     }
+
+2. Updated the Google token client callback to write to sessionStorage
+   and route through gdriveApplyToken:
+
+     callback: function(response) {
+         if (response.access_token) {
+             var ttlMs = (parseInt(response.expires_in, 10) || 3600) * 1000;
+             sessionStorage.setItem(GDRIVE_TOKEN_STORAGE_KEY, response.access_token);
+             sessionStorage.setItem(GDRIVE_EXPIRY_STORAGE_KEY, String(Date.now() + ttlMs));
+             gdriveApplyToken(response.access_token, 'Signed in. Enter a name and click Load.');
+         }
+     },
+
+3. Call gdriveRestoreFromStorage() at script load, before the
+   setInterval that waits for google.accounts:
+
+     gdriveRestoreFromStorage();
+
+     var checkGoogle = setInterval(function() { ... }, 200);
+
+   Note: restoration doesn't need to wait for the Google API to load —
+   the stored token is all we need to restore the signed-in UI state.
+   The Google Identity client is only required to REQUEST a new token.
+
+4. On explicit Google sign-out, also clear storage:
+
+     function gdriveSignIn() {
+         if (gdriveAccessToken) {
+             gdriveAccessToken = null;
+             gdriveClearStoredToken();   // <-- added
+             document.getElementById('gsheetsAuthBtn').textContent = 'Sign in with Google';
+             document.getElementById('gsheetsSearchBtn').disabled = true;
+             setGsheetsStatus('Signed out');
+             return;
+         }
+         ...
+     }
+
+New flow
+--------
+1. User clicks "Sign in with Google" -> token callback fires ->
+   token + expiry saved to sessionStorage -> UI shows "Sign Out".
+2. User clicks "DB: Sign In" -> full-page redirect to Dropbox OAuth.
+3. Dropbox bounces the browser back with ?code=... ->
+4. On page load, gdriveRestoreFromStorage() reads the still-valid
+   token from sessionStorage, sets gdriveAccessToken, flips the
+   Google button to "Sign Out" and re-enables the search button.
+5. window._dropboxReady IIFE processes ?code=..., exchanges for a
+   Dropbox access token, cleans the URL. Dropbox is now also signed in.
+6. Both sessions coexist until the tab closes or either is explicitly
+   signed out.
+
+Notes / tradeoffs
+-----------------
+- Storing access tokens in sessionStorage is standard practice for SPA
+  OAuth flows. The token is readable by any script on this origin, so
+  the usual SPA XSS caveats apply. Accepted for this app's scope.
+- Refresh tokens are intentionally not requested (token_access_type=online
+  equivalent for Google). When the stored token expires, the user must
+  click "Sign in with Google" again to get a fresh one via GIS.
+- If Google rotates or revokes the token server-side during the tab's
+  lifetime, the stored copy will still look valid locally until the
+  next API call fails with 401. That's a separate failure mode from
+  the bug this fix addresses and is expected.
