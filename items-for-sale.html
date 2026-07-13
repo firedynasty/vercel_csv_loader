@@ -58,20 +58,6 @@
     width: 90px; height: 90px; object-fit: cover;
     border-radius: 6px; border: 1px solid #ddd; display: block;
   }
-  .images .img-cell { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-  .images .drive-link { font-size: 11px; color: #d97757; text-decoration: none; }
-  .images .drive-link:hover { text-decoration: underline; }
-  /* Lightbox */
-  .lightbox {
-    display: none; position: fixed; inset: 0; z-index: 9999;
-    background: rgba(0,0,0,0.85); align-items: center; justify-content: center;
-    cursor: zoom-out;
-  }
-  .lightbox.open { display: flex; }
-  .lightbox img {
-    max-width: 90vw; max-height: 90vh; border-radius: 8px;
-    box-shadow: 0 4px 30px rgba(0,0,0,0.5);
-  }
 </style>
 </head>
 <body>
@@ -128,8 +114,8 @@ function driveIdFromUrl(url) {
   return match ? match[1] : null;
 }
 
-function driveViewLink(id) {
-  return 'https://drive.google.com/uc?export=view&id=' + id;
+function driveThumbnail(id) {
+  return 'https://drive.google.com/thumbnail?id=' + id + '&sz=w200';
 }
 
 function render(rows) {
@@ -155,14 +141,13 @@ function render(rows) {
       imagesHtml += '<div class="images">';
       links.forEach(link => {
         const id = driveIdFromUrl(link);
-        const imgSrc = id ? driveViewLink(id) : link;
-        imagesHtml += `<div class="img-cell">
-          <img class="img-thumb" src="${imgSrc}" alt="${item} photo" loading="lazy" onclick="openLightbox('${imgSrc}')">
-          <a class="drive-link" href="${link}" target="_blank">Drive &#8599;</a>
-        </div>`;
+        const imgSrc = id ? driveThumbnail(id) : link;
+        imagesHtml += `<a href="${link}" target="_blank" title="Open in Google Drive">
+          <img class="img-thumb" src="${imgSrc}" alt="${item} photo" loading="lazy">
+        </a>`;
       });
       imagesHtml += '</div>';
-      imagesHtml += '<div class="imgnote">Click photo to enlarge. "Drive" link opens in Google Drive.</div>';
+      imagesHtml += '<div class="imgnote">Click a photo to open in Google Drive.</div>';
     }
 
     card.innerHTML = `
@@ -194,19 +179,8 @@ function copyText(idx, btn) {
   setTimeout(() => { btn.textContent = original; btn.classList.remove('copied'); }, 1500);
 }
 
-function openLightbox(src) {
-  const lb = document.getElementById('lightbox');
-  document.getElementById('lightboxImg').src = src;
-  lb.classList.add('open');
-}
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') document.getElementById('lightbox').classList.remove('open');
-});
-</script>
 
-<div class="lightbox" id="lightbox" onclick="this.classList.remove('open')">
-  <img id="lightboxImg" src="" alt="Full size">
-</div>
+</script>
 
 </body>
 </html>
