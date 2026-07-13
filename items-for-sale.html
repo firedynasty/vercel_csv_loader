@@ -86,11 +86,22 @@ dropzone.addEventListener('drop', e => {
 
 function handleFile(file) {
   document.getElementById('dropzoneLabel').textContent = 'Loaded: ' + file.name;
-  Papa.parse(file, {
-    header: true,
-    skipEmptyLines: true,
-    complete: res => render(res.data)
-  });
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    let text = e.target.result;
+    // Strip leading rows that are empty or only commas (before the real header)
+    const lines = text.split('\n');
+    while (lines.length && /^[\s,]*$/.test(lines[0])) {
+      lines.shift();
+    }
+    text = lines.join('\n');
+    Papa.parse(text, {
+      header: true,
+      skipEmptyLines: true,
+      complete: res => render(res.data)
+    });
+  };
+  reader.readAsText(file);
 }
 
 function driveIdFromUrl(url) {
