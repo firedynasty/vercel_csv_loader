@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Items for sale</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+  body {
+    font-family: -apple-system, Segoe UI, Arial, sans-serif;
+    background: #f4f1ea;
+    color: #222;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 24px 16px 60px;
+  }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  p.sub { color: #666; margin-top: 0; margin-bottom: 24px; }
+  #dropzone {
+    border: 2px dashed #bbb;
+    border-radius: 10px;
+    padding: 32px;
+    text-align: center;
+    background: #fff;
+    cursor: pointer;
+    margin-bottom: 24px;
+  }
+  #dropzone.drag { border-color: #d97757; background: #fff7f2; }
+  #dropzone input { display: none; }
+  .card {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+  .card h2 { font-size: 18px; margin: 0 0 4px; text-transform: capitalize; }
+  .meta { color: #777; font-size: 13px; margin-bottom: 10px; }
+  .images { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .images a img {
+    width: 90px; height: 90px; object-fit: cover;
+    border-radius: 6px; border: 1px solid #ddd; display: block;
+  }
+  textarea {
+    width: 100%; box-sizing: border-box; min-height: 90px;
+    font-family: inherit; font-size: 14px; padding: 8px;
+    border-radius: 6px; border: 1px solid #ccc; resize: vertical;
+  }
+  button.copy {
+    margin-top: 8px;
+    background: #d97757; color: #fff; border: none;
+    padding: 8px 14px; border-radius: 6px; font-size: 14px;
+    cursor: pointer;
+  }
+  button.copy.copied { background: #4a9c6d; }
+  .imgnote { font-size: 12px; color: #888; margin-top: -6px; margin-bottom: 10px; }
+</style>
+</head>
+<body>
+
+<h1>Items for sale</h1>
+<p class="sub">Drop in your CSV. Each item becomes a ready-to-paste listing, with clickable photos.</p>
+
+<div id="dropzone" onclick="document.getElementById('fileInput').click()">
+  <div id="dropzoneLabel">Click to choose your CSV, or drag it here</div>
+  <input type="file" id="fileInput" accept=".csv">
+</div>
+
+<div id="results"></div>
+
+<script>
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const results = document.getElementById('results');
+
+fileInput.addEventListener('change', e => {
+  if (e.target.files[0]) handleFile(e.target.files[0]);
+});
+
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('drag');
+  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+
+function handleFile(file) {
+  document.getElementById('dropzoneLabel').textContent = 'Loaded: ' + file.name;
+  Papa.parse(file, {
+    header: true,
+    skipEmptyLines: true,
+    complete: res => render(res.data)
+  });
+}
+
+function driveIdFromUrl(url) {
+  const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/id=([a-zA-Z0-9_-]+)/);
+  return match ? match[1] : null;
+}
+
+function driveViewLink(id) {
+  return 'https://drive.google.com/uc?export=view&id=' + id;
+}
+
+function render(rows) {
+  results.innerHTML = '';
+  rows.forEach((row, idx) => {
+    const item = (row.Item || row.item || '').trim();
+    const category = (row.Category || row.category || '').trim();
+    const description = (row.Description || row.description || '').trim();
+    const date = (row.Date || row.date || '').trim();
+    const imagesRaw = row.Images || row.images || '';
+    if (!item && !description) return;
+
+    const links = imagesRaw.split('\n').map(s => s.trim()).filter(Boolean);
+
+    const card = document.createElement('div');
+    card.className = 'card';
+
+    const listingText = `${item.charAt(0).toUpperCase() + item.slice(1)}\nCategory: ${category}\n${description}`;
+
+    let imagesHtml = '';
+    if (links.length) {
+      imagesHtml += '<div class="images">';
+      links.forEach(link => {
+        const id = driveIdFromUrl(link);
+        const imgSrc = id ? driveViewLink(id) : link;
+        imagesHtml += `<a href="${link}" target="_blank" title="Open full size / right-click to save">
+          <img src="${imgSrc}" alt="${item} photo" loading="lazy">
+        </a>`;
+      });
+      imagesHtml += '</div>';
+      imagesHtml += '<div class="imgnote">Click a photo to open full size, then right-click → save.</div>';
+    }
+
+    card.innerHTML = `
+      <h2>${item || '(untitled item)'}</h2>
+      <div class="meta">${date ? date + ' · ' : ''}${category}</div>
+      ${imagesHtml}
+      <textarea id="text-${idx}" readonly>${listingText}</textarea>
+      <br>
+      <button class="copy" onclick="copyText(${idx}, this)">Copy listing text</button>
+    `;
+    results.appendChild(card);
+  });
+
+  if (!results.innerHTML) {
+    results.innerHTML = '<p style="color:#888;">No rows found. Check that your CSV has Item, Category, Description, and Images columns.</p>';
+  }
+}
+
+function copyText(idx, btn) {
+  const textarea = document.getElementById('text-' + idx);
+  textarea.select();
+  document.execCommand('copy');
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(textarea.value).catch(() => {});
+  }
+  const original = btn.textContent;
+  btn.textContent = 'Copied';
+  btn.classList.add('copied');
+  setTimeout(() => { btn.textContent = original; btn.classList.remove('copied'); }, 1500);
+}
+</script>
+
+</body>
+</html>
