@@ -40,13 +40,17 @@
     width: 90px; height: 90px; object-fit: cover;
     border-radius: 6px; border: 1px solid #ddd; display: block;
   }
+  .field-group { margin-bottom: 10px; }
+  .field-group label { font-size: 12px; font-weight: 600; color: #555; display: block; margin-bottom: 2px; }
   textarea {
-    width: 100%; box-sizing: border-box; min-height: 90px;
+    width: 100%; box-sizing: border-box;
     font-family: inherit; font-size: 14px; padding: 8px;
     border-radius: 6px; border: 1px solid #ccc; resize: vertical;
   }
+  textarea.field-sm { min-height: 32px; }
+  textarea.field-lg { min-height: 70px; }
+  .copy-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
   button.copy {
-    margin-top: 8px;
     background: #d97757; color: #fff; border: none;
     padding: 8px 14px; border-radius: 6px; font-size: 14px;
     cursor: pointer;
@@ -134,8 +138,6 @@ function render(rows) {
     const card = document.createElement('div');
     card.className = 'card';
 
-    const listingText = `${item.charAt(0).toUpperCase() + item.slice(1)}\nCategory: ${category}\n${description}`;
-
     let imagesHtml = '';
     if (links.length) {
       imagesHtml += '<div class="images">';
@@ -150,13 +152,29 @@ function render(rows) {
       imagesHtml += '<div class="imgnote">Click a photo to open in Google Drive.</div>';
     }
 
+    const itemText = item.charAt(0).toUpperCase() + item.slice(1);
     card.innerHTML = `
       <h2>${item || '(untitled item)'}</h2>
       <div class="meta">${date ? date + ' · ' : ''}${category}</div>
       ${imagesHtml}
-      <textarea id="text-${idx}" readonly>${listingText}</textarea>
-      <br>
-      <button class="copy" onclick="copyText(${idx}, this)">Copy listing text</button>
+      <div class="field-group">
+        <label>Name</label>
+        <textarea id="name-${idx}" class="field-sm" readonly>${itemText}</textarea>
+      </div>
+      <div class="field-group">
+        <label>Category</label>
+        <textarea id="cat-${idx}" class="field-sm" readonly>${category}</textarea>
+      </div>
+      <div class="field-group">
+        <label>Description</label>
+        <textarea id="desc-${idx}" class="field-lg" readonly>${description}</textarea>
+      </div>
+      <div class="copy-row">
+        <button class="copy" onclick="copyField('name-${idx}', this)">Copy Name</button>
+        <button class="copy" onclick="copyField('cat-${idx}', this)">Copy Category</button>
+        <button class="copy" onclick="copyField('desc-${idx}', this)">Copy Description</button>
+        <button class="copy" onclick="copyAll(${idx}, this)">Copy All</button>
+      </div>
     `;
     results.appendChild(card);
   });
@@ -166,12 +184,28 @@ function render(rows) {
   }
 }
 
-function copyText(idx, btn) {
-  const textarea = document.getElementById('text-' + idx);
-  textarea.select();
-  document.execCommand('copy');
+function copyField(id, btn) {
+  const textarea = document.getElementById(id);
+  const text = textarea.value;
   if (navigator.clipboard) {
-    navigator.clipboard.writeText(textarea.value).catch(() => {});
+    navigator.clipboard.writeText(text).catch(() => {});
+  } else {
+    textarea.select();
+    document.execCommand('copy');
+  }
+  const original = btn.textContent;
+  btn.textContent = 'Copied';
+  btn.classList.add('copied');
+  setTimeout(() => { btn.textContent = original; btn.classList.remove('copied'); }, 1500);
+}
+
+function copyAll(idx, btn) {
+  const name = document.getElementById('name-' + idx).value;
+  const cat = document.getElementById('cat-' + idx).value;
+  const desc = document.getElementById('desc-' + idx).value;
+  const text = name + '\nCategory: ' + cat + '\n' + desc;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).catch(() => {});
   }
   const original = btn.textContent;
   btn.textContent = 'Copied';
