@@ -547,6 +547,53 @@
             color: #fff;
         }
 
+        /* ── VIEW TOGGLE ── */
+        .view-toggle-bar {
+            display: flex; gap: 6px; margin-bottom: 14px;
+        }
+        .view-toggle-bar button {
+            padding: 6px 16px; border-radius: 6px; font-size: 12px; font-weight: 700;
+            border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08);
+            color: rgba(255,255,255,0.7); cursor: pointer; transition: all 0.15s;
+        }
+        .view-toggle-bar button.active { background: #3B82F6; border-color: #3B82F6; color: #fff; }
+        .view-toggle-bar button:hover:not(.active) { background: rgba(255,255,255,0.15); }
+        body.light-mode .view-toggle-bar button {
+            color: #555; background: rgba(0,0,0,0.05); border-color: rgba(0,0,0,0.15);
+        }
+        body.light-mode .view-toggle-bar button.active { background: #3B82F6; color: #fff; border-color: #3B82F6; }
+        body.light-mode .view-toggle-bar button:hover:not(.active) { background: rgba(0,0,0,0.08); }
+
+        /* ── CSV CARDS ── */
+        #cards-view-wrap { display: none; }
+        .csv-card {
+            background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px; padding: 14px 16px; margin-bottom: 8px;
+            transition: background 0.15s;
+        }
+        .csv-card:hover { background: rgba(59,130,246,0.18); }
+        .csv-card .card-num {
+            font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.3);
+            margin-bottom: 8px;
+        }
+        .csv-card .card-field {
+            margin-bottom: 6px; cursor: pointer;
+            padding: 4px 6px; border-radius: 4px; transition: background 0.1s;
+        }
+        .csv-card .card-field:hover { background: rgba(59,130,246,0.25); }
+        .csv-card .card-field:last-child { margin-bottom: 0; }
+        .csv-card .card-label {
+            font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.35);
+            text-transform: uppercase; letter-spacing: 0.6px;
+        }
+        .csv-card .card-value { font-size: 14px; color: #e2e8f0; line-height: 1.4; }
+        body.light-mode .csv-card { background: white; border-color: #e0e0e0; }
+        body.light-mode .csv-card:hover { background: #f0f4ff; }
+        body.light-mode .csv-card .card-num { color: #bbb; }
+        body.light-mode .csv-card .card-field:hover { background: rgba(59,130,246,0.08); }
+        body.light-mode .csv-card .card-label { color: #999; }
+        body.light-mode .csv-card .card-value { color: #1a1a1a; }
+
         /* Responsive */
         @media (max-width: 768px) {
             .main-content {
@@ -826,7 +873,15 @@
             var headerRow = data[0];
             var bodyRows = data.slice(1);
 
-            var html = '<div style="overflow-x:auto"><table id="csv-table" class="table table-bordered table-striped" style="width:100%"><thead><tr>';
+            // View toggle bar
+            var html = '<div class="view-toggle-bar">'
+                + '<button id="btnViewTable" onclick="setView(\'table\')">Table</button>'
+                + '<button id="btnViewCards" onclick="setView(\'cards\')">Cards</button>'
+                + '</div>';
+
+            // Table view
+            html += '<div id="table-view-wrap">';
+            html += '<div style="overflow-x:auto"><table id="csv-table" class="table table-bordered table-striped" style="width:100%"><thead><tr>';
             headerRow.forEach(function(cell) {
                 var text = cell !== null && cell !== undefined ? String(cell) : '';
                 html += '<th data-value="' + escAttr(text) + '">' + escHtml(text) + '</th>';
@@ -841,6 +896,24 @@
                 html += '</tr>';
             });
             html += '</tbody></table></div>';
+            html += '</div>'; // end table-view-wrap
+
+            // Cards view — each row is a card, fields stacked vertically, empty fields skipped
+            html += '<div id="cards-view-wrap">';
+            bodyRows.forEach(function(row, rowIndex) {
+                html += '<div class="csv-card">';
+                html += '<div class="card-num">#' + (rowIndex + 1) + '</div>';
+                headerRow.forEach(function(header, colIndex) {
+                    var text = row[colIndex] !== null && row[colIndex] !== undefined ? String(row[colIndex]) : '';
+                    if (!text.trim()) return; // skip empty fields
+                    html += '<div class="card-field" data-row="' + (rowIndex + 1) + '" data-col="' + colIndex + '">';
+                    html += '<div class="card-label">' + escHtml(String(header)) + '</div>';
+                    html += '<div class="card-value">' + escHtml(text) + '</div>';
+                    html += '</div>';
+                });
+                html += '</div>';
+            });
+            html += '</div>'; // end cards-view-wrap
 
             document.getElementById('table-container').innerHTML = html;
 
@@ -858,7 +931,39 @@
                 });
             });
 
+            document.querySelectorAll('#cards-view-wrap .card-field').forEach(function(field) {
+                field.addEventListener('click', function() {
+                    var r = parseInt(this.dataset.row);
+                    var c = parseInt(this.dataset.col);
+                    copyToClipboard(originalData[r][c], this);
+                });
+            });
+
             persistTableData(data);
+
+            var savedView = localStorage.getItem('csv-view') || 'table';
+            setView(savedView);
+        }
+
+        function setView(viewType) {
+            var tableWrap = document.getElementById('table-view-wrap');
+            var cardsWrap = document.getElementById('cards-view-wrap');
+            var btnTable = document.getElementById('btnViewTable');
+            var btnCards = document.getElementById('btnViewCards');
+            if (!tableWrap || !cardsWrap) return;
+
+            if (viewType === 'cards') {
+                tableWrap.style.display = 'none';
+                cardsWrap.style.display = 'block';
+                if (btnTable) btnTable.classList.remove('active');
+                if (btnCards) btnCards.classList.add('active');
+            } else {
+                tableWrap.style.display = 'block';
+                cardsWrap.style.display = 'none';
+                if (btnTable) btnTable.classList.add('active');
+                if (btnCards) btnCards.classList.remove('active');
+            }
+            localStorage.setItem('csv-view', viewType);
         }
 
         const TABLE_STORAGE_KEY = 'csv_table_data';
