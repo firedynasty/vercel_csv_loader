@@ -601,6 +601,84 @@
                 padding-top: 60px;
             }
         }
+
+        /* Dropbox CSV Browser Modal */
+        #dbxCsvOverlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.72); z-index: 9999;
+            align-items: center; justify-content: center;
+        }
+        #dbxCsvOverlay.open { display: flex; }
+        #dbxCsvModal {
+            background: #1a1a2e; border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 12px; width: min(520px, 95vw);
+            max-height: 80vh; display: flex; flex-direction: column; overflow: hidden;
+        }
+        body.light-mode #dbxCsvModal { background: #fff; border-color: #ddd; }
+        .dcm-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        body.light-mode .dcm-header { border-color: #eee; }
+        .dcm-header h3 { margin: 0; font-size: 15px; color: #e2e8f0; }
+        body.light-mode .dcm-header h3 { color: #1a1a1a; }
+        .dcm-close {
+            background: none; border: none; color: #888; font-size: 20px;
+            cursor: pointer; padding: 0 4px; line-height: 1;
+        }
+        .dcm-close:hover { color: #fff; }
+        body.light-mode .dcm-close:hover { color: #000; }
+        .dcm-search-row {
+            display: flex; gap: 8px; padding: 10px 16px;
+            border-bottom: 1px solid rgba(255,255,255,0.07);
+        }
+        body.light-mode .dcm-search-row { border-color: #eee; }
+        #dbxCsvPathInput {
+            flex: 1; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 6px; color: #e2e8f0; padding: 6px 10px; font-size: 13px;
+        }
+        body.light-mode #dbxCsvPathInput { background: #f5f5f5; border-color: #ccc; color: #1a1a1a; }
+        #dbxCsvPathInput:focus { outline: none; border-color: #0061FF; }
+        #dbxCsvBrowseBtn {
+            background: #0061FF; color: #fff; border: none; border-radius: 6px;
+            padding: 6px 14px; font-size: 13px; cursor: pointer;
+        }
+        #dbxCsvBrowseBtn:disabled { opacity: 0.5; cursor: default; }
+        #dbxCsvStatus { font-size: 12px; color: #888; padding: 4px 16px; min-height: 20px; }
+        #dbxCsvBreadcrumb {
+            display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 16px 6px;
+        }
+        .dcm-crumb {
+            background: rgba(255,255,255,0.07); border: none; border-radius: 4px;
+            color: #aaa; padding: 2px 8px; cursor: pointer; font-size: 12px;
+        }
+        .dcm-crumb:hover { background: rgba(255,255,255,0.13); color: #fff; }
+        body.light-mode .dcm-crumb { background: #eee; color: #555; }
+        body.light-mode .dcm-crumb:hover { background: #ddd; color: #000; }
+        #dbxCsvList { overflow-y: auto; flex: 1; padding: 4px 0; }
+        .dcm-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 16px; font-size: 14px;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+        .dcm-item:hover { background: rgba(255,255,255,0.05); }
+        body.light-mode .dcm-item:hover { background: rgba(0,0,0,0.04); }
+        .dcm-item.folder { color: #aaa; cursor: pointer; }
+        .dcm-item.csv-file { color: #4ade80; }
+        body.light-mode .dcm-item.folder { color: #555; }
+        body.light-mode .dcm-item.csv-file { color: #166534; }
+        .dcm-item .dcm-icon { font-size: 16px; flex-shrink: 0; }
+        .dcm-item .dcm-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .dcm-action {
+            background: #166534; color: #4ade80; border: none; border-radius: 4px;
+            padding: 3px 10px; font-size: 12px; cursor: pointer; flex-shrink: 0;
+        }
+        .dcm-action:hover { background: #15803d; }
+        body.light-mode .dcm-action { background: #dcfce7; color: #166534; }
+        .dcm-signin-btn {
+            display: block; margin: 30px auto; background: #0061FF; color: #fff;
+            border: none; border-radius: 8px; padding: 10px 24px; font-size: 14px; cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -643,6 +721,24 @@
     </div>
 
     <div id="toast" class="toast-notification">Copied!</div>
+
+    <!-- Dropbox CSV Browser Modal -->
+    <div id="dbxCsvOverlay" onclick="if(event.target===this)closeDbxCsvModal()">
+        <div id="dbxCsvModal">
+            <div class="dcm-header">
+                <h3>📂 Browse Dropbox CSV</h3>
+                <button class="dcm-close" onclick="closeDbxCsvModal()">&times;</button>
+            </div>
+            <div class="dcm-search-row">
+                <input id="dbxCsvPathInput" type="text" placeholder="/synced_working_anki" value="/synced_working_anki"
+                       onkeydown="if(event.key==='Enter')dbxCsvBrowse(document.getElementById('dbxCsvPathInput').value.trim())">
+                <button id="dbxCsvBrowseBtn" onclick="dbxCsvBrowse(document.getElementById('dbxCsvPathInput').value.trim())">Go</button>
+            </div>
+            <div id="dbxCsvStatus"></div>
+            <div id="dbxCsvBreadcrumb"></div>
+            <div id="dbxCsvList"></div>
+        </div>
+    </div>
 
     <!-- Dropbox Integration -->
     <script>
@@ -834,13 +930,13 @@
             var btn = document.getElementById('dropboxBtn');
             if (!btn) return;
             var signedIn = !!(window.getDropboxAccessToken && window.getDropboxAccessToken());
-            btn.textContent = signedIn ? 'DB: Load' : 'DB: Sign In';
+            btn.textContent = signedIn ? 'DB: Browse' : 'DB: Sign In';
         }
 
         async function handleDropboxClick() {
             var signedIn = !!(window.getDropboxAccessToken && window.getDropboxAccessToken());
             if (signedIn) {
-                showToast('Dropbox connected — clicking cells sends to Dropbox');
+                openDbxCsvModal();
                 return;
             }
             if (window.dropboxSignIn) await window.dropboxSignIn();
@@ -1253,6 +1349,135 @@
             if (window._dropboxReady) { try { await window._dropboxReady; } catch {} }
             refreshDropboxBtn();
         });
+
+        // ── Dropbox CSV Browser ───────────────────────────────────────────────
+        const DBX_CSV_DEFAULT_PATH = '/synced_working_anki';
+
+        function openDbxCsvModal() {
+            var token = window.getDropboxAccessToken && window.getDropboxAccessToken();
+            document.getElementById('dbxCsvOverlay').classList.add('open');
+            if (!token) {
+                document.getElementById('dbxCsvList').innerHTML =
+                    '<button class="dcm-signin-btn" onclick="closeDbxCsvModal();if(window.dropboxSignIn)window.dropboxSignIn()">Sign in with Dropbox</button>';
+                document.getElementById('dbxCsvStatus').textContent = 'Not signed in';
+                return;
+            }
+            var saved = localStorage.getItem('dbxCsvLastPath') || DBX_CSV_DEFAULT_PATH;
+            document.getElementById('dbxCsvPathInput').value = saved;
+            dbxCsvBrowse(saved);
+        }
+
+        function closeDbxCsvModal() {
+            document.getElementById('dbxCsvOverlay').classList.remove('open');
+        }
+
+        async function dbxCsvBrowse(path) {
+            var token = window.getDropboxAccessToken && window.getDropboxAccessToken();
+            if (!token) { openDbxCsvModal(); return; }
+
+            var btn = document.getElementById('dbxCsvBrowseBtn');
+            btn.disabled = true;
+            document.getElementById('dbxCsvStatus').textContent = 'Loading…';
+            document.getElementById('dbxCsvList').innerHTML = '';
+
+            var normPath = (path === '/' || path === '') ? '' : ('/' + path.replace(/^\/+|\/+$/g, ''));
+            document.getElementById('dbxCsvPathInput').value = normPath || '/';
+
+            try {
+                var res = await fetch('https://api.dropboxapi.com/2/files/list_folder', {
+                    method: 'POST',
+                    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ path: normPath }),
+                });
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                var data = await res.json();
+
+                var entries = (data.entries || [])
+                    .map(function(e) { return { name: e.name, path: e.path_lower || e.path_display, isFolder: e['.tag'] === 'folder' }; })
+                    .filter(function(e) { return e.isFolder || e.name.toLowerCase().endsWith('.csv'); })
+                    .sort(function(a, b) {
+                        if (a.isFolder !== b.isFolder) return a.isFolder ? -1 : 1;
+                        return a.name.localeCompare(b.name, undefined, { numeric: true });
+                    });
+
+                var fileCount = entries.filter(function(e) { return !e.isFolder; }).length;
+                var folderCount = entries.filter(function(e) { return e.isFolder; }).length;
+                document.getElementById('dbxCsvStatus').textContent = folderCount + ' folders · ' + fileCount + ' CSV files';
+
+                localStorage.setItem('dbxCsvLastPath', normPath || '/');
+                dbxCsvRenderBreadcrumb(normPath);
+                dbxCsvRenderList(entries);
+            } catch (err) {
+                document.getElementById('dbxCsvStatus').textContent = 'Error: ' + err.message;
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        function dbxCsvRenderBreadcrumb(path) {
+            var el = document.getElementById('dbxCsvBreadcrumb');
+            if (!path) { el.innerHTML = ''; return; }
+            var parts = path.replace(/^\//, '').split('/').filter(Boolean);
+            var html = '<span style="color:#888;">▸</span> ';
+            parts.forEach(function(part, i) {
+                var crumbPath = '/' + parts.slice(0, i + 1).join('/');
+                if (i > 0) html += '<span style="color:#555;"> / </span>';
+                html += '<button class="dcm-crumb" onclick="dbxCsvBrowse(\'' + crumbPath.replace(/'/g, "\\'") + '\')">' + escHtml(part) + '</button>';
+            });
+            el.innerHTML = html;
+        }
+
+        function dbxCsvRenderList(entries) {
+            var list = document.getElementById('dbxCsvList');
+            if (entries.length === 0) {
+                list.innerHTML = '<div style="color:#888;padding:20px;text-align:center;">No CSV files found</div>';
+                return;
+            }
+            list.innerHTML = entries.map(function(e) {
+                if (e.isFolder) {
+                    return '<div class="dcm-item folder" onclick="dbxCsvBrowse(\'' + e.path.replace(/'/g, "\\'") + '\')">'
+                        + '<span class="dcm-icon">📁</span>'
+                        + '<span class="dcm-name">' + escHtml(e.name) + '</span>'
+                        + '</div>';
+                }
+                return '<div class="dcm-item csv-file">'
+                    + '<span class="dcm-icon">📄</span>'
+                    + '<span class="dcm-name">' + escHtml(e.name) + '</span>'
+                    + '<button class="dcm-action" onclick="dbxCsvLoad(\'' + e.path.replace(/'/g, "\\'") + '\',\'' + e.name.replace(/'/g, "\\'") + '\')">Load</button>'
+                    + '</div>';
+            }).join('');
+        }
+
+        async function dbxCsvLoad(path, name) {
+            var token = window.getDropboxAccessToken && window.getDropboxAccessToken();
+            if (!token) return;
+            document.getElementById('dbxCsvStatus').textContent = 'Downloading ' + name + '…';
+            try {
+                var res = await fetch('https://content.dropboxapi.com/2/files/download', {
+                    method: 'POST',
+                    headers: {
+                        Authorization: 'Bearer ' + token,
+                        'Dropbox-API-Arg': JSON.stringify({ path: path }),
+                    },
+                });
+                if (!res.ok) throw new Error('Download failed: HTTP ' + res.status);
+                var text = await res.text();
+                Papa.parse(text, {
+                    header: false,
+                    delimiter: ',',
+                    dynamicTyping: true,
+                    skipEmptyLines: true,
+                    complete: function(results) {
+                        renderTableFromData(results.data);
+                        document.querySelector('.lead').textContent = 'Loaded from Dropbox: ' + name;
+                        closeDbxCsvModal();
+                        showToast('Loaded: ' + name);
+                    }
+                });
+            } catch (err) {
+                document.getElementById('dbxCsvStatus').textContent = 'Error: ' + err.message;
+            }
+        }
     </script>
 </body>
 </html>
