@@ -1009,16 +1009,16 @@
             html += '</tbody></table></div>';
             html += '</div>'; // end table-view-wrap
 
-            // Cards view — each row is a card, fields stacked vertically, empty fields skipped
+            // Cards view — each row (including the first; CSVs often have no header) is a card,
+            // fields stacked vertically without labels, empty fields skipped
             html += '<div id="cards-view-wrap">';
-            bodyRows.forEach(function(row, rowIndex) {
+            data.forEach(function(row, rowIndex) {
                 html += '<div class="csv-card">';
                 html += '<div class="card-num">#' + (rowIndex + 1) + '</div>';
-                headerRow.forEach(function(header, colIndex) {
-                    var text = row[colIndex] !== null && row[colIndex] !== undefined ? String(row[colIndex]) : '';
+                row.forEach(function(cell, colIndex) {
+                    var text = cell !== null && cell !== undefined ? String(cell) : '';
                     if (!text.trim()) return; // skip empty fields
-                    html += '<div class="card-field" data-row="' + (rowIndex + 1) + '" data-col="' + colIndex + '">';
-                    html += '<div class="card-label">' + escHtml(String(header)) + '</div>';
+                    html += '<div class="card-field" data-row="' + rowIndex + '" data-col="' + colIndex + '">';
                     html += '<div class="card-value">' + escHtml(text) + '</div>';
                     html += '</div>';
                 });
