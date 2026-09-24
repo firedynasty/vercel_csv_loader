@@ -246,6 +246,30 @@
             color: rgba(0, 0, 0, 0.6);
         }
 
+        .recent-dropdown-wrapper { position: relative; }
+        .recent-dropdown {
+            position: absolute; top: 100%; left: 0;
+            min-width: 220px; max-width: 320px;
+            max-height: 220px; overflow-y: auto;
+            background: #1e2a3a; border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,.4);
+            z-index: 200; margin-top: 4px;
+        }
+        body.light-mode .recent-dropdown {
+            background: #fff; border-color: #ddd; box-shadow: 0 4px 12px rgba(0,0,0,.1);
+        }
+        .recent-dropdown-item {
+            display: block; width: 100%; padding: 10px 14px; min-height: 40px;
+            text-align: left; background: none; border: none;
+            border-bottom: 1px solid rgba(255,255,255,0.07);
+            font-size: 13px; color: #e2e8f0; cursor: pointer;
+            white-space: normal; overflow: visible; word-break: break-word;
+        }
+        .recent-dropdown-item:last-child { border-bottom: none; }
+        .recent-dropdown-item:hover { background: rgba(255,255,255,0.07); }
+        body.light-mode .recent-dropdown-item { color: #1a1a1a; border-color: #f0f0f0; }
+        body.light-mode .recent-dropdown-item:hover { background: #f5f5f5; }
+
         /* Table container */
         #table-container {
             background: rgba(255, 255, 255, 0.05);
@@ -699,6 +723,10 @@
             <button class="gsheets-btn" id="gsheetsAuthBtn" onclick="gdriveSignIn()">Sign in with Google</button>
             <input type="text" id="gsheetsSearchInput" placeholder="Spreadsheet name..." />
             <button class="gsheets-btn" id="gsheetsSearchBtn" onclick="gdriveSearch()" disabled>Load</button>
+            <div class="recent-dropdown-wrapper">
+                <button class="gsheets-btn" id="recentBtn" disabled>Recent ▾</button>
+                <div id="recentDropdown" class="recent-dropdown" hidden></div>
+            </div>
             <button class="gsheets-btn" id="dropboxBtn" onclick="handleDropboxClick()" oncontextmenu="return handleDropboxRightClick(event)" title="Sign in to Dropbox. Once signed in, clicking a cell sends it to your Dropbox clipboard instead of local clipboard. Right-click to sign out.">DB: Sign In</button>
             <button class="gsheets-btn" onclick="window.open('/items-for-sale', '_blank')" title="Open Items for Sale page">Items for Sale</button>
             <div class="gsheets-status" id="gsheetsStatus"></div>
@@ -1201,6 +1229,7 @@
             gdriveAccessToken = token;
             document.getElementById('gsheetsAuthBtn').textContent = 'Sign Out';
             document.getElementById('gsheetsSearchBtn').disabled = false;
+            document.getElementById('recentBtn').disabled = false;
             if (msg) setGsheetsStatus(msg);
         }
 
@@ -1253,6 +1282,8 @@
                 gdriveClearStoredToken();
                 document.getElementById('gsheetsAuthBtn').textContent = 'Sign in with Google';
                 document.getElementById('gsheetsSearchBtn').disabled = true;
+                document.getElementById('recentBtn').disabled = true;
+                closeRecentDropdown();
                 setGsheetsStatus('Signed out');
                 return;
             }
@@ -1348,6 +1379,93 @@
             loadTheme();
             if (window._dropboxReady) { try { await window._dropboxReady; } catch {} }
             refreshDropboxBtn();
+        });
+
+        // ── Recent Google Sheets Dropdown ────────────────────────────────────
+        var _recentDismissListener = null;
+
+        async function fetchRecentFiles() {
+            var btn = document.getElementById('recentBtn');
+            btn.disabled = true;
+            btn.textContent = 'Loading…';
+            try {
+                var q = encodeURIComponent("mimeType='application/vnd.google-apps.spreadsheet' and trashed=false");
+                var fields = encodeURIComponent('files(id,name,viewedByMeTime)');
+                var url = 'https://www.googleapis.com/drive/v3/files?q=' + q +
+                          '&orderBy=viewedByMeTime+desc&pageSize=10&fields=' + fields;
+                var resp = await fetch(url, { headers: { Authorization: 'Bearer ' + gdriveAccessToken } });
+                if (!resp.ok) throw new Error('Drive API error ' + resp.status);
+                var data = await resp.json();
+                openRecentDropdown(data.files);
+            } catch (err) {
+                setGsheetsStatus('Error fetching recent files: ' + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Recent ▾';
+            }
+        }
+
+        function openRecentDropdown(files) {
+            var dropdown = document.getElementById('recentDropdown');
+            dropdown.innerHTML = '';
+            if (!files || files.length === 0) {
+                var msg = document.createElement('p');
+                msg.style.cssText = 'padding:12px 14px;font-size:13px;color:#888;';
+                msg.textContent = 'No recent spreadsheets found';
+                dropdown.appendChild(msg);
+                dropdown.removeAttribute('hidden');
+                _registerDismissListener();
+                return;
+            }
+            files.forEach(function(file) {
+                var item = document.createElement('button');
+                item.className = 'recent-dropdown-item';
+                item.textContent = file.name || '(untitled)';
+                item.addEventListener('click', function() {
+                    closeRecentDropdown();
+                    loadGoogleSpreadsheet(file.id, file.name || '(untitled)');
+                });
+                dropdown.appendChild(item);
+            });
+            dropdown.removeAttribute('hidden');
+            _registerDismissListener();
+        }
+
+        function closeRecentDropdown() {
+            var dropdown = document.getElementById('recentDropdown');
+            if (dropdown) dropdown.setAttribute('hidden', '');
+            if (_recentDismissListener) {
+                document.removeEventListener('touchstart', _recentDismissListener);
+                document.removeEventListener('click', _recentDismissListener);
+                _recentDismissListener = null;
+            }
+        }
+
+        function _registerDismissListener() {
+            if (_recentDismissListener) return;
+            _recentDismissListener = function(e) {
+                var dropdown = document.getElementById('recentDropdown');
+                var btn = document.getElementById('recentBtn');
+                if (!dropdown || !btn) return;
+                if (!dropdown.contains(e.target) && e.target !== btn) {
+                    closeRecentDropdown();
+                }
+            };
+            setTimeout(function() {
+                document.addEventListener('touchstart', _recentDismissListener);
+                document.addEventListener('click', _recentDismissListener);
+            }, 0);
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('recentBtn').addEventListener('click', function() {
+                var dropdown = document.getElementById('recentDropdown');
+                if (!dropdown.hasAttribute('hidden')) {
+                    closeRecentDropdown();
+                } else {
+                    fetchRecentFiles();
+                }
+            });
         });
 
         // ── Dropbox CSV Browser ───────────────────────────────────────────────
