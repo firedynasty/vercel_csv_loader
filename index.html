@@ -96,7 +96,6 @@
         /* Main content */
         .main-content {
             padding: 20px;
-            padding-top: 60px;
             max-width: 1400px;
             margin: 0 auto;
         }
@@ -624,7 +623,6 @@
         @media (max-width: 768px) {
             .main-content {
                 padding: 15px;
-                padding-top: 60px;
             }
         }
 
@@ -705,11 +703,70 @@
             display: block; margin: 30px auto; background: #0061FF; color: #fff;
             border: none; border-radius: 8px; padding: 10px 24px; font-size: 14px; cursor: pointer;
         }
+
+        /* ── STICKY NAVBAR ── */
+        .sticky-nav {
+            position: sticky; top: 0; z-index: 1000;
+            display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+            padding: 8px 16px;
+            background: rgba(22, 33, 62, 0.95); backdrop-filter: blur(6px);
+            border-bottom: 1px solid rgba(255,255,255,0.15);
+            font-size: 12px;
+        }
+        .sticky-nav .nav-label { color: rgba(255,255,255,0.6); font-weight: 700; }
+        .sticky-nav .sep { width: 1px; height: 18px; background: rgba(255,255,255,0.2); }
+        .sticky-nav select {
+            font-size: 12px; padding: 3px 6px; border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.25); background: #1a1a2e; color: #fff; max-width: 160px;
+        }
+        .click-mode-toggle { display: inline-flex; border-radius: 6px; overflow: hidden; border: 1px solid rgba(255,255,255,0.25); }
+        .click-mode-toggle button {
+            border: none; padding: 4px 10px; font-size: 12px; font-weight: 700; cursor: pointer;
+            background: transparent; color: rgba(255,255,255,0.7);
+        }
+        .click-mode-toggle button.active { background: #3B82F6; color: #fff; }
+        .click-mode-toggle button[data-mode="dropbox"].active { background: #0061FF; }
+        .nav-stop-btn {
+            border: 1px solid rgba(255,255,255,0.25); border-radius: 6px; background: transparent;
+            color: #fff; padding: 3px 8px; font-size: 12px; cursor: pointer;
+        }
+        .sticky-nav .theme-toggle-btn { position: static; margin-left: auto; padding: 4px 12px; font-size: 12px; }
+        body.light-mode .sticky-nav { background: rgba(255,255,255,0.95); border-bottom-color: rgba(0,0,0,0.15); color: #333; }
+        body.light-mode .sticky-nav .nav-label { color: #555; }
+        body.light-mode .sticky-nav .sep { background: rgba(0,0,0,0.15); }
+        body.light-mode .sticky-nav select { background: #fff; color: #333; border-color: #ccc; }
+        body.light-mode .click-mode-toggle { border-color: #ccc; }
+        body.light-mode .click-mode-toggle button { color: #555; }
+        body.light-mode .click-mode-toggle button.active { color: #fff; }
+        body.light-mode .nav-stop-btn { color: #333; border-color: #ccc; }
+
+        .click-mode-toggle button[data-mode="speak"].active { background: #16a34a; }
+        .csv-card .card-field.speaking { background: rgba(22,163,74,0.25); }
+        body.light-mode .csv-card .card-field.speaking { background: #bbf7d0; }
     </style>
 </head>
 <body>
-    <!-- Theme Toggle Button -->
-    <button class="theme-toggle-btn" id="themeToggle" onclick="toggleTheme()">&#9788; Light</button>
+    <!-- Sticky navbar: cell-click destination + TTS controls -->
+    <div class="sticky-nav" id="stickyNav">
+        <span class="nav-label">Click &rarr;</span>
+        <div class="click-mode-toggle">
+            <button data-mode="clipboard" onclick="setClickMode('clipboard')" title="Clicking a cell copies it to your local clipboard">Clipboard</button>
+            <button data-mode="dropbox" onclick="setClickMode('dropbox')" title="Clicking a cell sends it to Dropbox /blob_vercel_replacement/blob_clipboard_content.txt (same file as vercel_clipboard_manager; requires Dropbox sign-in)">Dropbox</button>
+            <button data-mode="speak" onclick="setClickMode('speak')" title="Cards view: clicking a field reads it aloud">Speak</button>
+        </div>
+        <div class="sep"></div>
+        <span class="nav-label">TTS</span>
+        <select id="speechRateSelect" onchange="ttsRate = parseFloat(this.value)" title="Speed">
+            <option value="0.5">0.5x</option>
+            <option value="0.7">0.7x</option>
+            <option value="1" selected>1x</option>
+            <option value="1.25">1.25x</option>
+            <option value="1.5">1.5x</option>
+        </select>
+        <select id="ttsLangSelect" onchange="setTtsLang(this.value)" title="Language used when Speak mode reads a card field"></select>
+        <button class="nav-stop-btn" onclick="stopSpeaking()" title="Stop speaking">&#9632; Stop</button>
+        <button class="theme-toggle-btn" id="themeToggle" onclick="toggleTheme()">&#9788; Light</button>
+    </div>
 
     <div class="main-content">
         <h1>CSV / Excel Table Loader</h1>
@@ -929,9 +986,41 @@
             document.querySelector('.lead').textContent = prefix + leadPreview;
         }
 
+        // ============ CLICK MODE (clipboard vs Dropbox) ============
+        const DROPBOX_CLIPBOARD_PATH = '/blob_vercel_replacement/blob_clipboard_content.txt';
+        var CLICK_MODES = ['clipboard', 'dropbox', 'speak'];
+        var clickMode = CLICK_MODES.indexOf(localStorage.getItem('csv-click-mode')) >= 0 ? localStorage.getItem('csv-click-mode') : 'clipboard';
+
+        function setClickMode(mode) {
+            clickMode = CLICK_MODES.indexOf(mode) >= 0 ? mode : 'clipboard';
+            localStorage.setItem('csv-click-mode', clickMode);
+            document.querySelectorAll('.click-mode-toggle button').forEach(function(btn) {
+                btn.classList.toggle('active', btn.dataset.mode === clickMode);
+            });
+            var signedIn = !!(window.getDropboxAccessToken && window.getDropboxAccessToken());
+            if (clickMode === 'dropbox' && !signedIn) showToast('Sign in to Dropbox (DB button) to send clicks there');
+            if (clickMode === 'speak' && localStorage.getItem('csv-view') !== 'cards') setView('cards');
+        }
+
         function copyToClipboard(text, cell) {
             var preview = text.replace(/[\r\n]+/g, ' ').trim();
             preview = preview.length > 40 ? preview.substring(0, 40) + '...' : preview;
+
+            if (clickMode === 'dropbox') {
+                if (!(window.getDropboxAccessToken && window.getDropboxAccessToken())) {
+                    showToast('Not signed in to Dropbox — sign in or switch to Clipboard');
+                    return;
+                }
+                window.dropboxUploadFile(DROPBOX_CLIPBOARD_PATH, text).then(function() {
+                    showToast('Sent to Dropbox ' + DROPBOX_CLIPBOARD_PATH + ': ' + preview);
+                    updateLeadPreview('Sent to Dropbox: ', text);
+                    flashCell(cell);
+                }).catch(function(err) {
+                    console.error('Dropbox upload failed: ', err);
+                    showToast('Dropbox upload failed');
+                });
+                return;
+            }
 
             navigator.clipboard.writeText(text).then(function() {
                 showToast('Copied: ' + preview);
@@ -1052,6 +1141,7 @@
                 field.addEventListener('click', function() {
                     var r = parseInt(this.dataset.row);
                     var c = parseInt(this.dataset.col);
+                    if (clickMode === 'speak') { speakField(originalData[r][c], this); return; }
                     copyToClipboard(originalData[r][c], this);
                 });
             });
@@ -1098,6 +1188,169 @@
             localStorage.setItem('csv-card-font', size);
             applyCardFont();
         }
+
+        // ============ TTS (ported from vercel_flashcards/learn-chinese-tts) ============
+        var TTS_TOOLTIP_LANGS = [
+            { key: 'A', label: '粵', lang: 'zh-HK', title: 'Cantonese' },
+            { key: 'M', label: '普', lang: 'zh-CN', title: 'Mandarin'  },
+            { key: 'E', label: 'En', lang: 'en-US', title: 'English'   },
+            { key: 'P', label: 'Es', lang: 'es-ES', title: 'Spanish'   },
+            { key: 'K', label: '한', lang: 'ko-KR', title: 'Korean'    },
+            { key: 'F', label: 'Fr', lang: 'fr-FR', title: 'French'    },
+            { key: 'G', label: 'Ελ', lang: 'el-GR', title: 'Greek'     },
+            { key: 'H', label: 'עב', lang: 'he-IL', title: 'Hebrew'    },
+        ];
+        var ttsRate = 1;
+        var ttsLang = localStorage.getItem('csv-tts-lang') || 'en-US';
+
+        function setTtsLang(lang) {
+            ttsLang = lang;
+            localStorage.setItem('csv-tts-lang', lang);
+        }
+
+        function ttsPickVoice(lang) {
+            var voices = window.speechSynthesis.getVoices();
+            if (!voices.length) return null;
+            var v = voices.find(function(vv) { return vv.lang === lang && vv.name.includes('Google'); });
+            if (!v) v = voices.find(function(vv) { return vv.lang === lang && (vv.name.includes('Enhanced') || vv.name.includes('Premium')); });
+            if (!v) v = voices.find(function(vv) { return vv.lang === lang; });
+            if (!v && lang === 'zh-HK') v = voices.find(function(vv) { return vv.lang.startsWith('yue'); });
+            if (!v && lang.startsWith('zh')) v = voices.find(function(vv) { return vv.lang.startsWith('zh'); });
+            if (!v) v = voices.find(function(vv) { return vv.lang.split('-')[0] === lang.split('-')[0]; });
+            return v || null;
+        }
+
+        function speakText(text, lang, onEnd) {
+            stopSpeaking();
+            var utt = new SpeechSynthesisUtterance(text);
+            utt.lang = lang;
+            utt.rate = ttsRate;
+            var v = ttsPickVoice(lang);
+            if (v) utt.voice = v;
+            utt.onend = utt.onerror = function() { if (onEnd) onEnd(); };
+            window.speechSynthesis.speak(utt);
+        }
+
+        function stopSpeaking() {
+            window.speechSynthesis.cancel();
+            document.querySelectorAll('.card-field.speaking').forEach(function(el) { el.classList.remove('speaking'); });
+        }
+
+        function speakField(text, el) {
+            text = (text || '').trim();
+            if (!text) return;
+            speakText(text, ttsLang, function() { el.classList.remove('speaking'); });
+            document.querySelectorAll('.card-field.speaking').forEach(function(f) { f.classList.remove('speaking'); });
+            el.classList.add('speaking');
+        }
+
+        // ── TTS SELECTION TOOLTIP ──
+        var TTS_TOOLTIP_STORAGE = 'csvLoader-tooltip-visible';
+        var ttsTooltipEl = null;
+        var ttsSettingsPanelOpen = false;
+
+        function ttsTooltipGetVisible() {
+            try { return JSON.parse(localStorage.getItem(TTS_TOOLTIP_STORAGE)) || {}; } catch(e) { return {}; }
+        }
+        function ttsTooltipIsVisible(key) {
+            var v = ttsTooltipGetVisible(); return !(key in v) || v[key];
+        }
+        function ttsTooltipToggleLang(key) {
+            var v = ttsTooltipGetVisible(); v[key] = !ttsTooltipIsVisible(key);
+            try { localStorage.setItem(TTS_TOOLTIP_STORAGE, JSON.stringify(v)); } catch(e) {}
+            ttsTooltipRenderSettings();
+        }
+        function ttsTooltipSetAll(visible) {
+            var v = {}; TTS_TOOLTIP_LANGS.forEach(function(l) { v[l.key] = visible; });
+            try { localStorage.setItem(TTS_TOOLTIP_STORAGE, JSON.stringify(v)); } catch(e) {}
+            ttsTooltipRenderSettings();
+        }
+
+        function ttsTooltipRemove() {
+            if (ttsTooltipEl) { ttsTooltipEl.remove(); ttsTooltipEl = null; }
+            ttsSettingsPanelOpen = false;
+        }
+
+        function ttsTooltipRenderSettings() {
+            if (!ttsTooltipEl) return;
+            var panel = ttsTooltipEl.querySelector('#tts-tooltip-settings');
+            if (!panel) return;
+            var allVisible = TTS_TOOLTIP_LANGS.every(function(l) { return ttsTooltipIsVisible(l.key); });
+            var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">' +
+                '<span style="color:#7ec8e3;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;">TTS Buttons</span>' +
+                '<button id="tts-settings-close" style="background:none;border:none;color:#888;font-size:16px;cursor:pointer;">&times;</button>' +
+                '</div>' +
+                '<button id="tts-settings-all" style="display:block;width:100%;margin-bottom:8px;padding:4px 0;background:none;border:1px solid #444;border-radius:5px;color:#aaa;font-size:11px;cursor:pointer;text-align:center;">' +
+                (allVisible ? 'Deselect All' : 'Select All') + '</button>';
+            TTS_TOOLTIP_LANGS.forEach(function(l) {
+                html += '<label style="display:flex;align-items:center;gap:8px;padding:5px 0;cursor:pointer;color:#ddd;font-size:13px;">' +
+                    '<input type="checkbox" data-key="' + l.key + '"' + (ttsTooltipIsVisible(l.key) ? ' checked' : '') + ' style="cursor:pointer;accent-color:#7ec8e3;">' +
+                    l.label + ' — ' + l.title + '</label>';
+            });
+            panel.innerHTML = html;
+            panel.style.display = ttsSettingsPanelOpen ? 'block' : 'none';
+            panel.querySelector('#tts-settings-close').addEventListener('mousedown', function(e) {
+                e.preventDefault(); ttsSettingsPanelOpen = false; panel.style.display = 'none';
+            });
+            panel.querySelector('#tts-settings-all').addEventListener('mousedown', function(e) {
+                e.preventDefault(); ttsTooltipSetAll(!allVisible);
+            });
+            panel.querySelectorAll('input[type="checkbox"]').forEach(function(cb) {
+                cb.addEventListener('change', function() { ttsTooltipToggleLang(cb.dataset.key); });
+            });
+        }
+
+        function ttsTooltipShow(x, y, text) {
+            ttsTooltipRemove();
+            var el = document.createElement('div');
+            el.id = 'bible-tts-tooltip';
+            el.style.cssText = 'position:fixed;left:' + Math.min(x, window.innerWidth - 240) + 'px;top:' + Math.max(y - 52, 8) + 'px;z-index:99999;display:flex;align-items:center;gap:4px;background:#1a1a2e;border:1px solid #7ec8e3;border-radius:8px;padding:4px 6px;box-shadow:0 4px 16px rgba(0,0,0,.5);white-space:nowrap;';
+            var inner = '';
+            TTS_TOOLTIP_LANGS.forEach(function(l) {
+                if (!ttsTooltipIsVisible(l.key)) return;
+                inner += '<button data-lang="' + l.lang + '" title="' + l.title + '" class="tts-tt-btn" style="border:none;border-radius:6px;cursor:pointer;padding:4px 8px;font-size:12px;font-weight:700;background:#2a2a4a;color:#eee;">' + l.label + '</button>';
+            });
+            inner += '<button id="tts-tt-gear" title="Choose visible languages" style="border:none;background:none;color:#888;cursor:pointer;font-size:13px;padding:4px;">&#9881;</button>';
+            inner += '<div id="tts-tooltip-settings" style="position:absolute;top:100%;left:0;margin-top:6px;background:#1a1a2e;border:1px solid #7ec8e3;border-radius:10px;padding:12px 14px;box-shadow:0 8px 28px rgba(0,0,0,.6);min-width:190px;z-index:1;display:none;"></div>';
+            el.innerHTML = inner;
+            document.body.appendChild(el);
+            ttsTooltipEl = el;
+            el.querySelectorAll('.tts-tt-btn').forEach(function(btn) {
+                btn.addEventListener('mousedown', function(e) { e.preventDefault(); speakText(text, btn.dataset.lang); ttsTooltipRemove(); });
+                btn.addEventListener('mouseenter', function() { btn.style.background = '#7ec8e3'; btn.style.color = '#000'; });
+                btn.addEventListener('mouseleave', function() { btn.style.background = '#2a2a4a'; btn.style.color = '#eee'; });
+            });
+            el.querySelector('#tts-tt-gear').addEventListener('mousedown', function(e) {
+                e.preventDefault(); e.stopPropagation(); ttsSettingsPanelOpen = !ttsSettingsPanelOpen; ttsTooltipRenderSettings();
+            });
+            ttsTooltipRenderSettings();
+        }
+
+        document.addEventListener('mouseup', function(e) {
+            if (e.target.closest && e.target.closest('#bible-tts-tooltip')) return;
+            setTimeout(function() {
+                var sel = window.getSelection();
+                var text = sel ? sel.toString().trim() : '';
+                if (!text) { ttsTooltipRemove(); return; }
+                ttsTooltipShow(e.clientX, e.clientY, text);
+            }, 10);
+        });
+        document.addEventListener('mousedown', function(e) {
+            if (e.target.closest && e.target.closest('#bible-tts-tooltip')) return;
+            ttsTooltipRemove();
+        });
+
+        // Navbar init
+        (function initStickyNav() {
+            var langSel = document.getElementById('ttsLangSelect');
+            langSel.innerHTML = TTS_TOOLTIP_LANGS.map(function(l) {
+                return '<option value="' + l.lang + '"' + (l.lang === ttsLang ? ' selected' : '') + '>' + l.label + ' ' + l.title + '</option>';
+            }).join('');
+            document.querySelectorAll('.click-mode-toggle button').forEach(function(btn) {
+                btn.classList.toggle('active', btn.dataset.mode === clickMode);
+            });
+            if (window.speechSynthesis) window.speechSynthesis.getVoices(); // warm voice list
+        })();
 
         const TABLE_STORAGE_KEY = 'csv_table_data';
 
