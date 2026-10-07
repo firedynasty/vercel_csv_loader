@@ -741,6 +741,52 @@
         body.light-mode .nav-stop-btn { color: #333; border-color: #ccc; }
 
         .click-mode-toggle button[data-mode="speak"].active { background: #16a34a; }
+        .click-mode-toggle button[data-mode="known"].active { background: #d97706; }
+        .sticky-nav { flex-direction: column; align-items: stretch; gap: 6px; }
+        .sticky-nav .nav-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+        .sticky-nav .gsheets-wrapper {
+            margin: 0; padding: 0; background: none; border: none;
+            justify-content: flex-start; gap: 6px;
+        }
+        .sticky-nav .gsheets-btn { padding: 4px 10px; font-size: 12px; border-width: 1px; }
+        .sticky-nav .gsheets-wrapper input[type="text"] { padding: 4px 8px; font-size: 12px; min-width: 160px; }
+        .sticky-nav .gsheets-status { width: auto; text-align: left; min-height: 0; }
+        body.light-mode .sticky-nav .gsheets-wrapper { background: none; }
+
+        /* Known marks */
+        .csv-card.known { border-color: #d97706; box-shadow: inset 4px 0 0 #d97706; }
+        .csv-card.known .card-num::after { content: ' ✓ Known'; color: #d97706; }
+        #csv-table tbody tr.known td { box-shadow: inset 0 0 0 999px rgba(217,119,6,0.18); }
+        body.known-mode .csv-card, body.known-mode #csv-table td, body.known-mode #csv-table th { cursor: pointer; }
+
+        /* Known cards modal */
+        #knownOverlay {
+            display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.72);
+            z-index: 9999; align-items: center; justify-content: center;
+        }
+        #knownOverlay.open { display: flex; }
+        #knownModal {
+            background: #1a1a2e; border: 1px solid rgba(255,255,255,0.15); border-radius: 12px;
+            width: min(640px, calc(100vw - 32px)); padding: 16px; display: flex; flex-direction: column; gap: 10px;
+            max-height: calc(100vh - 32px); overflow-y: auto;
+        }
+        #knownModal .known-mode-bar { margin-bottom: 0; }
+        #knownText, #knownPromptText {
+            width: 100%; font-size: 12px; font-family: inherit; padding: 8px; border-radius: 6px;
+            background: rgba(255,255,255,0.06); color: #fff; border: 1px solid rgba(255,255,255,0.2); resize: vertical;
+        }
+        #knownInfo { font-size: 11px; color: rgba(255,255,255,0.6); }
+        .known-footer { display: flex; gap: 8px; align-items: center; }
+        .known-btn {
+            border: 1px solid rgba(255,255,255,0.25); background: transparent; color: #fff;
+            border-radius: 6px; padding: 6px 12px; font-size: 12px; cursor: pointer;
+        }
+        .known-btn.primary { background: #3B82F6; border-color: #3B82F6; }
+        body.light-mode #knownModal { background: #fff; color: #1a1a1a; border-color: #ddd; }
+        body.light-mode #knownText, body.light-mode #knownPromptText { background: #f8fafc; color: #1a1a1a; border-color: #ccc; }
+        body.light-mode #knownInfo { color: #666; }
+        body.light-mode .known-btn { color: #333; border-color: #ccc; }
+        body.light-mode .known-btn.primary { color: #fff; border-color: #3B82F6; }
         .csv-card .card-field.speaking { background: rgba(22,163,74,0.25); }
         body.light-mode .csv-card .card-field.speaking { background: #bbf7d0; }
     </style>
@@ -748,35 +794,6 @@
 <body>
     <!-- Sticky navbar: cell-click destination + TTS controls -->
     <div class="sticky-nav" id="stickyNav">
-        <span class="nav-label">Click &rarr;</span>
-        <div class="click-mode-toggle">
-            <button data-mode="clipboard" onclick="setClickMode('clipboard')" title="Clicking a cell copies it to your local clipboard">Clipboard</button>
-            <button data-mode="dropbox" onclick="setClickMode('dropbox')" title="Clicking a cell sends it to Dropbox /blob_vercel_replacement/blob_clipboard_content.txt (same file as vercel_clipboard_manager; requires Dropbox sign-in)">Dropbox</button>
-            <button data-mode="speak" onclick="setClickMode('speak')" title="Cards view: clicking a field reads it aloud">Speak</button>
-        </div>
-        <div class="sep"></div>
-        <span class="nav-label">TTS</span>
-        <select id="speechRateSelect" onchange="ttsRate = parseFloat(this.value)" title="Speed">
-            <option value="0.5">0.5x</option>
-            <option value="0.7">0.7x</option>
-            <option value="1" selected>1x</option>
-            <option value="1.25">1.25x</option>
-            <option value="1.5">1.5x</option>
-        </select>
-        <select id="ttsLangSelect" onchange="setTtsLang(this.value)" title="Language used when Speak mode reads a card field"></select>
-        <button class="nav-stop-btn" onclick="stopSpeaking()" title="Stop speaking">&#9632; Stop</button>
-        <button class="theme-toggle-btn" id="themeToggle" onclick="toggleTheme()">&#9788; Light</button>
-    </div>
-
-    <div class="main-content">
-        <h1>CSV / Excel Table Loader</h1>
-        <p class="lead">Upload a CSV or Excel file. Click any cell to copy its content.</p>
-
-        <div class="file-input-wrapper">
-            <input type="file" id="csv-file" name="files" accept=".csv,.xlsx,.xls" />
-            <button id="chooseSheetBtn" class="choose-sheet-btn" onclick="reopenSheetPicker()" style="display:none;">&#128196; Choose Sheet</button>
-        </div>
-
         <!-- Google Sheets -->
         <div class="gsheets-wrapper">
             <button class="gsheets-btn" id="gsheetsAuthBtn" onclick="gdriveSignIn()">Sign in with Google</button>
@@ -790,6 +807,40 @@
             <button class="gsheets-btn" onclick="window.open('/items-for-sale', '_blank')" title="Open Items for Sale page">Items for Sale</button>
             <div class="gsheets-status" id="gsheetsStatus"></div>
         </div>
+        <div class="nav-row">
+            <span class="nav-label">Click &rarr;</span>
+            <div class="click-mode-toggle">
+                <button data-mode="clipboard" onclick="setClickMode('clipboard')" title="Clicking a cell copies it to your local clipboard">Clipboard</button>
+                <button data-mode="dropbox" onclick="setClickMode('dropbox')" title="Clicking a cell sends it to Dropbox /blob_vercel_replacement/blob_clipboard_content.txt (same file as vercel_clipboard_manager; requires Dropbox sign-in)">Dropbox</button>
+                <button data-mode="speak" onclick="setClickMode('speak')" title="Cards view: clicking a field reads it aloud">Speak</button>
+                <button data-mode="known" onclick="setClickMode('known')" title="Clicking a card (or table row) marks it Known; click again to unmark">Known</button>
+            </div>
+            <div class="sep"></div>
+            <span class="nav-label">TTS</span>
+            <select id="speechRateSelect" onchange="ttsRate = parseFloat(this.value)" title="Speed">
+                <option value="0.5">0.5x</option>
+                <option value="0.7">0.7x</option>
+                <option value="1" selected>1x</option>
+                <option value="1.25">1.25x</option>
+                <option value="1.5">1.5x</option>
+            </select>
+            <select id="ttsLangSelect" onchange="setTtsLang(this.value)" title="Language used when Speak mode reads a card field"></select>
+            <button class="nav-stop-btn" onclick="stopSpeaking()" title="Stop speaking">&#9632; Stop</button>
+            <div class="sep"></div>
+            <button class="nav-stop-btn" onclick="openKnownCards()" title="Cards marked Known / still learning, to paste into Claude">&#128203; Known cards</button>
+            <button class="theme-toggle-btn" id="themeToggle" onclick="toggleTheme()">&#9788; Light</button>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <h1>CSV / Excel Table Loader</h1>
+        <p class="lead">Upload a CSV or Excel file. Click any cell to copy its content.</p>
+
+        <div class="file-input-wrapper">
+            <input type="file" id="csv-file" name="files" accept=".csv,.xlsx,.xls" />
+            <button id="chooseSheetBtn" class="choose-sheet-btn" onclick="reopenSheetPicker()" style="display:none;">&#128196; Choose Sheet</button>
+        </div>
+
 
         <div id="table-container">
             <p>Upload a CSV file or select a saved table to view</p>
@@ -808,6 +859,32 @@
     </div>
 
     <div id="toast" class="toast-notification">Copied!</div>
+
+    <!-- Known cards (ported from vercel_flashcards/anki_manager.html) -->
+    <div id="knownOverlay" onclick="if(event.target===this)closeKnownCards()">
+        <div id="knownModal">
+            <div class="dcm-header">
+                <h3>&#128203; Known cards</h3>
+                <button class="dcm-close" onclick="closeKnownCards()">&times;</button>
+            </div>
+            <div class="view-toggle-bar known-mode-bar">
+                <button id="knownModeAll" class="active" onclick="setKnownMode('all')">All cards</button>
+                <button id="knownModeKnown" onclick="setKnownMode('known')">Known</button>
+                <button id="knownModeLearning" onclick="setKnownMode('learning')">Still learning</button>
+            </div>
+            <textarea id="knownText" rows="10" oninput="renderKnownPrompt()"></textarea>
+            <div id="knownInfo"></div>
+            <textarea id="knownPromptText" rows="14" style="display:none" title="The full prompt Copy + prompt copies; edits here are copied too"></textarea>
+            <div class="known-footer">
+                <button class="known-btn" onclick="clearKnownRows()" title="Unmark every card in this file">Clear marks</button>
+                <span style="flex:1"></span>
+                <button class="known-btn" id="knownViewPromptBtn" onclick="toggleKnownPrompt()" title="Show the full prompt that Copy + prompt copies">View prompt</button>
+                <button class="known-btn" onclick="closeKnownCards()">Close</button>
+                <button class="known-btn" id="knownCopyBtn" onclick="copyKnownCards()">Copy</button>
+                <button class="known-btn primary" id="knownPromptBtn" onclick="copyKnownWithPrompt()" title="Socratic tutoring prompt with this list filled in">Copy + prompt</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Dropbox CSV Browser Modal -->
     <div id="dbxCsvOverlay" onclick="if(event.target===this)closeDbxCsvModal()">
@@ -988,7 +1065,7 @@
 
         // ============ CLICK MODE (clipboard vs Dropbox) ============
         const DROPBOX_CLIPBOARD_PATH = '/blob_vercel_replacement/blob_clipboard_content.txt';
-        var CLICK_MODES = ['clipboard', 'dropbox', 'speak'];
+        var CLICK_MODES = ['clipboard', 'dropbox', 'speak', 'known'];
         var clickMode = CLICK_MODES.indexOf(localStorage.getItem('csv-click-mode')) >= 0 ? localStorage.getItem('csv-click-mode') : 'clipboard';
 
         function setClickMode(mode) {
@@ -1000,6 +1077,7 @@
             var signedIn = !!(window.getDropboxAccessToken && window.getDropboxAccessToken());
             if (clickMode === 'dropbox' && !signedIn) showToast('Sign in to Dropbox (DB button) to send clicks there');
             if (clickMode === 'speak' && localStorage.getItem('csv-view') !== 'cards') setView('cards');
+            document.body.classList.toggle('known-mode', clickMode === 'known');
         }
 
         function copyToClipboard(text, cell) {
@@ -1094,7 +1172,7 @@
             });
             html += '</tr></thead><tbody>';
             bodyRows.forEach(function(row, rowIndex) {
-                html += '<tr>';
+                html += '<tr data-row="' + (rowIndex + 1) + '">';
                 row.forEach(function(cell, colIndex) {
                     var text = cell !== null && cell !== undefined ? String(cell) : '';
                     html += '<td data-row="' + (rowIndex + 1) + '" data-col="' + colIndex + '">' + escHtml(text) + '</td>';
@@ -1108,7 +1186,7 @@
             // fields stacked vertically without labels, empty fields skipped
             html += '<div id="cards-view-wrap">';
             data.forEach(function(row, rowIndex) {
-                html += '<div class="csv-card">';
+                html += '<div class="csv-card" data-row="' + rowIndex + '">';
                 html += '<div class="card-num">#' + (rowIndex + 1) + '</div>';
                 row.forEach(function(cell, colIndex) {
                     var text = cell !== null && cell !== undefined ? String(cell) : '';
@@ -1127,12 +1205,14 @@
                 td.addEventListener('click', function() {
                     var r = parseInt(this.dataset.row);
                     var c = parseInt(this.dataset.col);
+                    if (clickMode === 'known') { toggleKnownRow(r); return; }
                     copyToClipboard(originalData[r][c], this);
                 });
             });
 
             document.querySelectorAll('#csv-table thead th').forEach(function(th) {
                 th.addEventListener('click', function() {
+                    if (clickMode === 'known') { toggleKnownRow(0); return; }
                     copyToClipboard(this.dataset.value, this);
                 });
             });
@@ -1141,11 +1221,19 @@
                 field.addEventListener('click', function() {
                     var r = parseInt(this.dataset.row);
                     var c = parseInt(this.dataset.col);
+                    if (clickMode === 'known') return; // handled by the card's own listener
                     if (clickMode === 'speak') { speakField(originalData[r][c], this); return; }
                     copyToClipboard(originalData[r][c], this);
                 });
             });
 
+            document.querySelectorAll('#cards-view-wrap .csv-card').forEach(function(card) {
+                card.addEventListener('click', function() {
+                    if (clickMode === 'known') toggleKnownRow(parseInt(this.dataset.row));
+                });
+            });
+
+            loadKnownRows(data);
             persistTableData(data);
 
             var savedView = localStorage.getItem('csv-view') || 'table';
@@ -1187,6 +1275,182 @@
             size = Math.max(10, Math.min(40, size + delta * 2));
             localStorage.setItem('csv-card-font', size);
             applyCardFont();
+        }
+
+        // ============ KNOWN CARDS (ported from vercel_flashcards/anki_manager.html) ============
+        // In Known click mode, clicking a card (or table row) marks that row Known; click again to
+        // unmark. Unmarked rows count as "Still learning". Marks are kept per file content in
+        // localStorage. Rows read as "first column → other columns", like Anki's "Front → Back".
+        var knownRows = {};       // data row index -> true
+        var knownStorageKey = '';
+        var knownMode = 'all';
+
+        function knownHash(str) {
+            var h = 5381;
+            for (var i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
+            return (h >>> 0).toString(36);
+        }
+
+        function loadKnownRows(data) {
+            knownStorageKey = 'csv-known:' + knownHash(JSON.stringify(data));
+            try { knownRows = JSON.parse(localStorage.getItem(knownStorageKey)) || {}; } catch (e) { knownRows = {}; }
+            applyKnownMarks();
+        }
+
+        function saveKnownRows() {
+            try { localStorage.setItem(knownStorageKey, JSON.stringify(knownRows)); } catch (e) {}
+        }
+
+        function applyKnownMarks() {
+            document.querySelectorAll('#cards-view-wrap .csv-card[data-row], #csv-table tbody tr[data-row]').forEach(function(el) {
+                el.classList.toggle('known', !!knownRows[el.dataset.row]);
+            });
+        }
+
+        function toggleKnownRow(r) {
+            if (knownRows[r]) delete knownRows[r]; else knownRows[r] = true;
+            saveKnownRows();
+            applyKnownMarks();
+            var count = Object.keys(knownRows).length;
+            showToast((knownRows[r] ? 'Marked Known' : 'Unmarked') + ' — ' + count + ' known');
+        }
+
+        function clearKnownRows() {
+            knownRows = {};
+            saveKnownRows();
+            applyKnownMarks();
+            renderKnownCards();
+        }
+
+        function knownOneLine(t) { return (t || '').replace(/\s*\n\s*/g, ' / ').replace(/\s+/g, ' ').trim(); }
+
+        function knownCardList() {
+            return Object.keys(originalData).map(function(r) {
+                var row = originalData[r];
+                var cells = Object.keys(row).map(function(c) { return knownOneLine(row[c]); }).filter(Boolean);
+                if (!cells.length) return null;
+                return { front: cells[0], back: cells.slice(1).join(' / '), known: !!knownRows[r] };
+            }).filter(Boolean);
+        }
+
+        function openKnownCards() {
+            if (!Object.keys(originalData).length) { showToast('Load a CSV first'); return; }
+            document.getElementById('knownCopyBtn').textContent = 'Copy';
+            document.getElementById('knownPromptBtn').textContent = 'Copy + prompt';
+            renderKnownCards();
+            document.getElementById('knownOverlay').classList.add('open');
+        }
+
+        function closeKnownCards() {
+            document.getElementById('knownOverlay').classList.remove('open');
+        }
+
+        function setKnownMode(mode) {
+            knownMode = mode;
+            document.getElementById('knownModeAll').classList.toggle('active', mode === 'all');
+            document.getElementById('knownModeKnown').classList.toggle('active', mode === 'known');
+            document.getElementById('knownModeLearning').classList.toggle('active', mode === 'learning');
+            renderKnownCards();
+        }
+
+        function renderKnownCards() {
+            var all = knownCardList();
+            var cards = all.filter(function(c) {
+                return knownMode === 'all' || (knownMode === 'known' ? c.known : !c.known);
+            });
+            var known = all.filter(function(c) { return c.known; }).length;
+            document.getElementById('knownText').value = (knownMode === 'learning'
+                ? 'CARDS I\'M STILL LEARNING — focus on these:\n'
+                : knownMode === 'known' ? 'CARDS I ALREADY KNOW:\n' : 'MY CARDS:\n') +
+                (cards.length ? cards.map(function(c) { return '- ' + c.front + (c.back ? ' → ' + c.back : ''); }).join('\n') : 'none');
+            document.getElementById('knownInfo').textContent =
+                cards.length + ' card' + (cards.length !== 1 ? 's' : '') + ' listed · ' + known + ' of ' + all.length +
+                ' known · ' + (all.length - known) + ' still learning';
+            renderKnownPrompt();
+        }
+
+        function knownAssembledPrompt() {
+            var list = document.getElementById('knownText').value.trim() || 'CARDS I ALREADY HAVE: none';
+            return SOCRATIC_PROMPT.replace('{{KNOWN}}', list);
+        }
+
+        // Second textarea under the list: the full prompt, kept in sync with the list box
+        function renderKnownPrompt() {
+            var box = document.getElementById('knownPromptText');
+            if (box.style.display !== 'none') box.value = knownAssembledPrompt();
+        }
+
+        function toggleKnownPrompt() {
+            var box = document.getElementById('knownPromptText');
+            var show = box.style.display === 'none';
+            box.style.display = show ? 'block' : 'none';
+            document.getElementById('knownViewPromptBtn').textContent = show ? 'Hide prompt' : 'View prompt';
+            renderKnownPrompt();
+        }
+
+        // "Copy + prompt": the Socratic tutoring prompt with the list above (as edited
+        // in the box) in place of {{KNOWN}}. Same prompt as anki_manager.html.
+        var SOCRATIC_PROMPT = [
+            "You are running a Socratic tutoring dialogue with a key-terms layer. The source material is my Anki cards below; they can be on any subject (a language, science, IT, work, scripture). Start the setup right away; don't wait for more. If I paste extra material later, fold it in.",
+            "",
+            "{{KNOWN}}",
+            "",
+            "SETUP (do this first, then stop):",
+            "1. Read the cards and derive 3-5 learning objectives, phrased as",
+            "   \"Identify X / Describe Y / Explain Z.\"",
+            "2. Pick 8-10 key terms from the cards that I should be able to use (subject terms, or words and grammar patterns for language cards), and that don't already have a card of their own (a card whose Front is just that term). Show only the terms, with no definitions yet.",
+            "3. Show me the objectives and the term list, then say: \"Reply 'start' when ready.\"",
+            "4. Do not teach anything yet.",
+            "",
+            "DIALOGUE RULES:",
+            "- Ask exactly ONE question per turn. Never two.",
+            "- Never explain a concept before I have attempted it.",
+            "- Max 4 sentences of your own content before your next question.",
+            "- Work the objectives in order. Track which are covered.",
+            "- Every question should invite me to answer using at least one term from the list. If I use a list term correctly, note it as \"produced.\" If I describe the idea without the term, note it as \"not produced.\"",
+            "",
+            "RESPONSE FORMULA (every time I answer):",
+            "- Name the specific part I got right. Be precise, not generic praise.",
+            "- Add ONLY the missing piece or correction. One idea, not a summary.",
+            "- Ask the next question.",
+            "",
+            "WHEN I'M WRONG OR VAGUE, escalate across turns. Do not loop:",
+            "  Turn 1: reframe the question or narrow its scope",
+            "  Turn 2: give a concrete hint or partial answer, re-ask",
+            "  Turn 3: state the answer plainly, note it as a gap, move on",
+            "If I say \"stuck,\" jump straight to a hint, a nudge rather than the answer.",
+            "",
+            "ENDING:",
+            "When all objectives are covered, say so, then output:",
+            "  - Strengths: what I demonstrated, with specifics, including terms I produced",
+            "  - Gaps: what I could not produce unaided, and what to review, including terms I did not produce",
+            "Tie both to the objectives you declared at the start.",
+            "",
+            "Then, without being asked, output an Anki CSV file for the terms I did NOT produce:",
+            "  - Two columns only: Front and Back",
+            "  - No header row, no tags column, every field in double quotes",
+            "  - Per term, two cards in a row:",
+            "    1. Production: Front = fill-in-the-blank sentence from the cards, Back = the term",
+            "    2. Recognition: Front = the term, Back = the definition (or translation)",
+            "  - Don't make a card that's already in my list above",
+            "  - Save as a downloadable .csv file"
+        ].join('\n');
+
+        function knownCopyText(text, btn, label) {
+            navigator.clipboard.writeText(text).then(function() {
+                btn.textContent = 'Copied ✓';
+                setTimeout(function() { btn.textContent = label; }, 1500);
+            }).catch(function() { showToast('Failed to copy'); });
+        }
+
+        function copyKnownCards() {
+            knownCopyText(document.getElementById('knownText').value, document.getElementById('knownCopyBtn'), 'Copy');
+        }
+
+        function copyKnownWithPrompt() {
+            var box = document.getElementById('knownPromptText');
+            var text = box.style.display !== 'none' ? box.value : knownAssembledPrompt(); // keep edits made in the prompt box
+            knownCopyText(text, document.getElementById('knownPromptBtn'), 'Copy + prompt');
         }
 
         // ============ TTS (ported from vercel_flashcards/learn-chinese-tts) ============
@@ -1349,6 +1613,7 @@
             document.querySelectorAll('.click-mode-toggle button').forEach(function(btn) {
                 btn.classList.toggle('active', btn.dataset.mode === clickMode);
             });
+            document.body.classList.toggle('known-mode', clickMode === 'known');
             if (window.speechSynthesis) window.speechSynthesis.getVoices(); // warm voice list
         })();
 
