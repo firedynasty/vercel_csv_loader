@@ -759,7 +759,41 @@
         #csv-table tbody tr.known td { box-shadow: inset 0 0 0 999px rgba(217,119,6,0.18); }
         body.known-mode .csv-card, body.known-mode #csv-table td, body.known-mode #csv-table th { cursor: pointer; }
 
+        /* Keyboard focus: ↑/↓ moves it, Enter or / toggles Known */
+        .csv-card.kb-focus { outline: 2px solid #3B82F6; outline-offset: 2px; }
+        #csv-table tbody tr.kb-focus td { box-shadow: inset 0 0 0 999px rgba(59,130,246,0.22); }
+        #csv-table tbody tr.kb-focus.known td { box-shadow: inset 0 0 0 999px rgba(217,119,6,0.35); }
+
+        /* Hide mode (Cards view): only the first field shows until revealed (→ or right-click) */
+        .csv-card .card-hint { display: none; color: #64748b; font-size: 12px; font-style: italic; padding: 4px 8px; }
+        body.cards-hide .csv-card:not(.revealed) .card-answer { display: none; }
+        body.cards-hide .csv-card:not(.revealed) .card-hint { display: block; }
+        #btnHideMode.hide-on { background: #7c3aed; border-color: #7c3aed; color: white; }
+
         /* Known cards modal */
+        /* Keys info popup */
+        #keysOverlay {
+            display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+            z-index: 9999; align-items: center; justify-content: center; padding: 16px;
+        }
+        #keysOverlay.open { display: flex; }
+        #keysModal {
+            background: #1e293b; color: #e2e8f0; border-radius: 10px; padding: 18px 20px;
+            width: 100%; max-width: 440px; box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+        #keysModal h3 { margin: 0 0 12px; font-size: 17px; display: flex; justify-content: space-between; }
+        #keysModal table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        #keysModal td { padding: 6px 4px; border-top: 1px solid #334155; vertical-align: top; }
+        #keysModal td:first-child { white-space: nowrap; padding-right: 14px; }
+        #keysModal kbd {
+            background: #334155; border: 1px solid #475569; border-radius: 4px;
+            padding: 1px 6px; font-size: 12px; font-family: inherit;
+        }
+        #keysModal .keys-close { background: none; border: none; color: #94a3b8; font-size: 20px; cursor: pointer; }
+        body.light-mode #keysModal { background: white; color: #1a1a1a; }
+        body.light-mode #keysModal td { border-top-color: #e5e7eb; }
+        body.light-mode #keysModal kbd { background: #f1f5f9; border-color: #cbd5e1; }
+
         #knownOverlay {
             display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.72);
             z-index: 9999; align-items: center; justify-content: center;
@@ -828,6 +862,9 @@
             <button class="nav-stop-btn" onclick="stopSpeaking()" title="Stop speaking">&#9632; Stop</button>
             <div class="sep"></div>
             <button class="nav-stop-btn" onclick="openKnownCards()" title="Cards marked Known / still learning, to paste into Claude">&#128203; Known cards</button>
+            <button class="nav-stop-btn" onclick="saveUnknownCards()" title="Save every card not marked Known as a CSV: to Dropbox /study/unknown_cards when signed in, otherwise a download">&#128190; Save unknown</button>
+            <button class="nav-stop-btn" id="btnHideMode" onclick="toggleHideMode()" title="Cards view: hide the answer (everything after the first field). ← toggles this; → or right-click reveals a card for 10 seconds">Hide answers</button>
+            <button class="nav-stop-btn" onclick="openKeysInfo()" title="Keyboard shortcuts">&#9432; Keys</button>
             <button class="theme-toggle-btn" id="themeToggle" onclick="toggleTheme()">&#9788; Light</button>
         </div>
     </div>
@@ -861,6 +898,22 @@
     <div id="toast" class="toast-notification">Copied!</div>
 
     <!-- Known cards (ported from vercel_flashcards/anki_manager.html) -->
+    <div id="keysOverlay" onclick="if(event.target===this)closeKeysInfo()">
+        <div id="keysModal">
+            <h3>Keyboard shortcuts <button class="keys-close" onclick="closeKeysInfo()">&times;</button></h3>
+            <table>
+                <tr><td><kbd>&darr;</kbd> <kbd>&uarr;</kbd></td><td>Move to the next / previous card (rows in Table view)</td></tr>
+                <tr><td><kbd>Enter</kbd> <kbd>/</kbd> or <kbd>Space</kbd></td><td>Mark the highlighted card Known (press again to unmark)</td></tr>
+                <tr><td><kbd>&larr;</kbd></td><td>Turn Hide answers on / off (switches to Cards view)</td></tr>
+                <tr><td><kbd>&rarr;</kbd></td><td>Hide answers on: show the highlighted card's answer for 10 seconds</td></tr>
+                <tr><td>Left click</td><td>Highlight a card (and do the current Click &rarr; mode)</td></tr>
+                <tr><td>Right click</td><td>Hide answers on: show that card's answer for 10 seconds</td></tr>
+                <tr><td><kbd>Esc</kbd></td><td>Close this box</td></tr>
+            </table>
+            <p style="margin:12px 0 0;font-size:12px;opacity:.75">&#128190; Save unknown saves every card not marked Known to Dropbox /study/unknown_cards (or downloads it if you're not signed in).</p>
+        </div>
+    </div>
+
     <div id="knownOverlay" onclick="if(event.target===this)closeKnownCards()">
         <div id="knownModal">
             <div class="dcm-header">
@@ -894,7 +947,7 @@
                 <button class="dcm-close" onclick="closeDbxCsvModal()">&times;</button>
             </div>
             <div class="dcm-search-row">
-                <input id="dbxCsvPathInput" type="text" placeholder="/synced_working_anki" value="/synced_working_anki"
+                <input id="dbxCsvPathInput" type="text" placeholder="/study" value="/study"
                        onkeydown="if(event.key==='Enter')dbxCsvBrowse(document.getElementById('dbxCsvPathInput').value.trim())">
                 <button id="dbxCsvBrowseBtn" onclick="dbxCsvBrowse(document.getElementById('dbxCsvPathInput').value.trim())">Go</button>
             </div>
@@ -941,13 +994,20 @@
 
         window.getDropboxAccessToken = function() { return dropboxAccessToken; };
 
+        // HTTP headers must be ASCII: escape anything else in the Dropbox-API-Arg JSON
+        window.dbxApiArg = function(obj) {
+            return JSON.stringify(obj).replace(/[\u007f-\uffff]/g, function(c) {
+                return '\\u' + ('000' + c.charCodeAt(0).toString(16)).slice(-4);
+            });
+        };
+
         window.dropboxUploadFile = async function(path, content) {
             if (!dropboxAccessToken) throw new Error('Not signed into Dropbox');
             const response = await fetch('https://content.dropboxapi.com/2/files/upload', {
                 method: 'POST',
                 headers: {
                     Authorization: 'Bearer ' + dropboxAccessToken,
-                    'Dropbox-API-Arg': JSON.stringify({
+                    'Dropbox-API-Arg': dbxApiArg({
                         path: path, mode: { '.tag': 'overwrite' }, mute: true,
                     }),
                     'Content-Type': 'application/octet-stream',
@@ -1188,10 +1248,12 @@
             data.forEach(function(row, rowIndex) {
                 html += '<div class="csv-card" data-row="' + rowIndex + '">';
                 html += '<div class="card-num">#' + (rowIndex + 1) + '</div>';
+                var shown = 0;
                 row.forEach(function(cell, colIndex) {
                     var text = cell !== null && cell !== undefined ? String(cell) : '';
                     if (!text.trim()) return; // skip empty fields
-                    html += '<div class="card-field" data-row="' + rowIndex + '" data-col="' + colIndex + '">';
+                    if (shown++ === 1) html += '<div class="card-hint">→ or right-click to reveal</div>';
+                    html += '<div class="card-field' + (shown > 1 ? ' card-answer' : '') + '" data-row="' + rowIndex + '" data-col="' + colIndex + '">';
                     html += '<div class="card-value">' + escHtml(text) + '</div>';
                     html += '</div>';
                 });
@@ -1230,11 +1292,21 @@
             document.querySelectorAll('#cards-view-wrap .csv-card').forEach(function(card) {
                 card.addEventListener('click', function() {
                     if (clickMode === 'known') toggleKnownRow(parseInt(this.dataset.row));
+                    kbFocus(this.dataset.row);  // left click highlights the card for ↑/↓/→/Enter
+                });
+                card.addEventListener('contextmenu', function(e) {
+                    if (!document.body.classList.contains('cards-hide')) return; // normal menu when not hiding
+                    e.preventDefault();
+                    revealCard(this);  // right click only reveals, for 10 seconds
                 });
             });
 
             loadKnownRows(data);
             persistTableData(data);
+            kbFocusRow = null;
+            loadedDbxPath = null;  // dbxCsvLoad sets it after this returns
+            loadedName = '';
+            applyHideMode();
 
             var savedView = localStorage.getItem('csv-view') || 'table';
             setView(savedView);
@@ -1262,6 +1334,7 @@
             var fontControls = document.getElementById('cardFontControls');
             if (fontControls) fontControls.style.display = viewType === 'cards' ? 'inline' : 'none';
             localStorage.setItem('csv-view', viewType);
+            if (typeof kbFocusRow !== 'undefined' && kbFocusRow !== null) kbFocus(kbFocusRow);
         }
 
         function applyCardFont() {
@@ -1313,6 +1386,135 @@
             applyKnownMarks();
             var count = Object.keys(knownRows).length;
             showToast((knownRows[r] ? 'Marked Known' : 'Unmarked') + ' — ' + count + ' known');
+        }
+
+        // ── HIDE MODE (Cards view): show only the first field; → or right-click reveals, ← hides ──
+        function applyHideMode() {
+            var on = localStorage.getItem('csv-hide-answers') === '1';
+            document.body.classList.toggle('cards-hide', on);
+            var btn = document.getElementById('btnHideMode');
+            if (btn) { btn.classList.toggle('hide-on', on); btn.textContent = on ? 'Show answers' : 'Hide answers'; }
+        }
+
+        document.addEventListener('DOMContentLoaded', applyHideMode);
+
+        function toggleHideMode() {
+            if (document.getElementById('table-view-wrap') && localStorage.getItem('csv-hide-answers') !== '1') setView('cards');
+            var on = localStorage.getItem('csv-hide-answers') !== '1';
+            try { localStorage.setItem('csv-hide-answers', on ? '1' : '0'); } catch (e) {}
+            document.querySelectorAll('#cards-view-wrap .csv-card.revealed').forEach(function(c) {
+                clearTimeout(c._revealTimer);
+                c.classList.remove('revealed');
+            });
+            applyHideMode();
+            showToast(on ? 'Answers hidden — → reveals for 10s' : 'Answers shown');
+        }
+
+        // ── KEYBOARD: ↑/↓ move between cards (or table rows), Enter, / or Space toggles Known,
+        //    ← toggles Hide answers, → reveals the focused card's answer for 10 seconds ──
+        // Works in any click mode; ignored while typing in a box or with a popup open.
+        var kbFocusRow = null;  // data-row of the focused card/row
+
+        function kbItems() {
+            var cards = document.getElementById('cards-view-wrap');
+            var sel = cards && cards.style.display !== 'none'
+                ? '#cards-view-wrap .csv-card[data-row]' : '#csv-table tbody tr[data-row]';
+            return Array.prototype.slice.call(document.querySelectorAll(sel));
+        }
+
+        function kbFocus(row) {
+            kbFocusRow = row;
+            document.querySelectorAll('.kb-focus').forEach(function(el) { el.classList.remove('kb-focus'); });
+            var el = kbItems().filter(function(e) { return e.dataset.row === String(row); })[0];
+            if (el) { el.classList.add('kb-focus'); el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+        }
+
+        document.addEventListener('keydown', function(e) {
+            var t = e.target;
+            if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+            if (e.metaKey || e.ctrlKey || e.altKey) return;
+            if (document.getElementById('keysOverlay').classList.contains('open')) {
+                if (e.key === 'Escape') closeKeysInfo();
+                return;
+            }
+            if (document.querySelector('#knownOverlay.open, #dbxCsvOverlay.open')) return;
+            if (e.key === 'ArrowLeft') { e.preventDefault(); toggleHideMode(); return; }
+            var items = kbItems();
+            if (!items.length) return;
+            var rows = items.map(function(el) { return el.dataset.row; });
+            var i = rows.indexOf(String(kbFocusRow));
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (i < 0) i = e.key === 'ArrowDown' ? 0 : rows.length - 1;
+                else i = Math.max(0, Math.min(rows.length - 1, i + (e.key === 'ArrowDown' ? 1 : -1)));
+                kbFocus(rows[i]);
+            } else if ((e.key === 'Enter' || e.key === '/' || e.key === ' ') && i >= 0) {
+                e.preventDefault();
+                toggleKnownRow(parseInt(rows[i]));
+                kbFocus(rows[i]);  // keep the highlight after the marks re-render
+            } else if (e.key === 'ArrowRight' && document.body.classList.contains('cards-hide')
+                       && items[0].classList.contains('csv-card')) {
+                e.preventDefault();
+                if (i < 0) { i = 0; kbFocus(rows[0]); }
+                revealCard(items[i]);
+            }
+        });
+
+        // Show a card's answer for 10 seconds, then hide it again (→ or right-click)
+        var REVEAL_MS = 10000;
+        function revealCard(card) {
+            clearTimeout(card._revealTimer);
+            card.classList.add('revealed');
+            card._revealTimer = setTimeout(function() { card.classList.remove('revealed'); }, REVEAL_MS);
+        }
+
+        function openKeysInfo() { document.getElementById('keysOverlay').classList.add('open'); }
+        function closeKeysInfo() { document.getElementById('keysOverlay').classList.remove('open'); }
+
+        // ── SAVE UNKNOWN: every row not marked Known, as a CSV ──
+        // Signed into Dropbox → /study/unknown_cards/<same subpath>.csv (outside /study/anki so the
+        // Mac sync never imports it; overwritten each time). A file already in /study/unknown_cards
+        // is saved back over itself, so the list shrinks as you learn. Not signed in → download.
+        var UNKNOWN_ROOT = '/study/unknown_cards';
+        var loadedDbxPath = null;
+        var loadedName = '';
+
+        function unknownCsvTarget() {
+            var p = loadedDbxPath || '';
+            var lower = p.toLowerCase();
+            if (lower.indexOf(UNKNOWN_ROOT + '/') === 0) return p;
+            if (lower.indexOf('/study/anki/') === 0) return UNKNOWN_ROOT + p.slice('/study/anki'.length);
+            var name = (loadedName || 'cards.csv').replace(/[\\/:*?"<>|]/g, '_');
+            if (!/\.csv$/i.test(name)) name = name.replace(/\.[^.]*$/, '') + '.csv';
+            return UNKNOWN_ROOT + '/' + name;
+        }
+
+        async function saveUnknownCards() {
+            var keys = Object.keys(originalData);
+            if (!keys.length) { showToast('Load a CSV first'); return; }
+            var rows = keys.filter(function(r) { return !knownRows[r]; }).map(function(r) {
+                var row = originalData[r];
+                return Object.keys(row).map(function(c) { return row[c]; });
+            }).filter(function(row) { return row.some(function(c) { return String(c).trim(); }); });
+            if (!rows.length) { showToast('Every card is marked Known — nothing to save'); return; }
+            var csv = Papa.unparse(rows);
+            var path = unknownCsvTarget();
+            var label = rows.length + ' unknown card' + (rows.length !== 1 ? 's' : '');
+            if (window.getDropboxAccessToken && window.getDropboxAccessToken()) {
+                try {
+                    await window.dropboxUploadFile(path, csv);
+                    showToast('Saved ' + label + ' to Dropbox ' + path);
+                    return;
+                } catch (err) {
+                    showToast('Dropbox save failed (' + err.message + ') — downloading instead');
+                }
+            }
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+            a.download = 'unknown_' + path.split('/').pop();
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(function() { URL.revokeObjectURL(a.href); }, 1000);
+            showToast('Downloaded ' + label + ' (sign into Dropbox to save there)');
         }
 
         function clearKnownRows() {
@@ -1996,7 +2198,7 @@
         });
 
         // ── Dropbox CSV Browser ───────────────────────────────────────────────
-        const DBX_CSV_DEFAULT_PATH = '/synced_working_anki';
+        const DBX_CSV_DEFAULT_PATH = '/study';
 
         function openDbxCsvModal() {
             var token = window.getDropboxAccessToken && window.getDropboxAccessToken();
@@ -2008,6 +2210,7 @@
                 return;
             }
             var saved = localStorage.getItem('dbxCsvLastPath') || DBX_CSV_DEFAULT_PATH;
+            if (/^\/synced_working_anki(\/|$)/i.test(saved)) saved = DBX_CSV_DEFAULT_PATH;  // old default
             document.getElementById('dbxCsvPathInput').value = saved;
             dbxCsvBrowse(saved);
         }
@@ -2102,7 +2305,7 @@
                     method: 'POST',
                     headers: {
                         Authorization: 'Bearer ' + token,
-                        'Dropbox-API-Arg': JSON.stringify({ path: path }),
+                        'Dropbox-API-Arg': dbxApiArg({ path: path }),
                     },
                 });
                 if (!res.ok) throw new Error('Download failed: HTTP ' + res.status);
@@ -2114,6 +2317,8 @@
                     skipEmptyLines: true,
                     complete: function(results) {
                         renderTableFromData(results.data);
+                        loadedDbxPath = path;
+                        loadedName = name;
                         document.querySelector('.lead').textContent = 'Loaded from Dropbox: ' + name;
                         closeDbxCsvModal();
                         showToast('Loaded: ' + name);
