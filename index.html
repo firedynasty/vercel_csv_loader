@@ -868,8 +868,9 @@
             <button class="nav-stop-btn" onclick="stopSpeaking()" title="Stop speaking">&#9632; Stop</button>
             <div class="sep"></div>
             <button class="nav-stop-btn" onclick="openKnownCards()" title="Cards marked Known / still learning, to paste into Claude">&#128203; Known cards</button>
-            <input id="unknownDeck" type="text" placeholder="Anki deck, e.g. google_it::module_1" title="Optional. Adds a front/back/deck header and a deck column to Save unknown, so anki_app.py sorts the cards into this deck" oninput="try{localStorage.setItem('csv-unknown-deck',this.value)}catch(e){}" style="width:230px;padding:4px 8px;font-size:12px;border-radius:6px;border:1px solid #888;background:transparent;color:inherit">
-            <button class="nav-stop-btn" onclick="saveUnknownCards()" title="Save every card not marked Known as a CSV: to Dropbox /study/unknown_cards when signed in, otherwise a download">&#128190; Save unknown</button>
+            <input id="unknownDeck" type="text" placeholder="Anki deck, e.g. google_it::module_1" title="Anki deck, e.g. google_it::module_1. Save unknown adds it as a deck column (anki_manager sorts the cards into it); Sync Anki reads and updates this deck" oninput="try{localStorage.setItem('csv-unknown-deck',this.value)}catch(e){}" style="width:230px;padding:4px 8px;font-size:12px;border-radius:6px;border:1px solid #888;background:transparent;color:inherit">
+            <button class="nav-stop-btn" onclick="syncAnki()" title="Two-way sync with the deck in the box (Anki must be open on this computer). Cards marked Known here get their due date pushed out 21 days; cards Anki shows as not due for 21+ days become Known here; marks whose card is due again are cleared">&#128260; Sync Anki</button>
+            <button class="nav-stop-btn" onclick="saveUnknownCards()" title="Download every card not marked Known as a CSV (unknown_cards.csv)">&#128190; Save unknown</button>
             <button class="nav-stop-btn" id="btnHideMode" onclick="toggleHideMode()" title="Cards view: hide the answer (everything after the first field). ← toggles this; → or right-click reveals a card for 10 seconds">Hide answers</button>
             <button class="nav-stop-btn" onclick="openKeysInfo()" title="Keyboard shortcuts">&#9432; Keys</button>
             <button class="theme-toggle-btn" id="themeToggle" onclick="toggleTheme()">&#9788; Light</button>
@@ -915,11 +916,12 @@
                 <tr><td><kbd>0</kbd>-<kbd>9</kbd></td><td>Type a card number (e.g. 15) to jump the highlight to card #15; Enter or a short pause confirms. Then Enter marks it.</td></tr>
                 <tr><td><kbd>&larr;</kbd></td><td>Turn Hide answers on / off (switches to Cards view)</td></tr>
                 <tr><td><kbd>&rarr;</kbd></td><td>Hide answers on: show the highlighted card's answer for 10 seconds</td></tr>
+                <tr><td>Sync Anki</td><td>With the deck in the box: Known here &rarr; due date +21 days in Anki; not due for 21+ days in Anki &rarr; Known here; card due again &rarr; mark cleared</td></tr>
                 <tr><td>Left click</td><td>Highlight a card (and do the current Click &rarr; mode)</td></tr>
                 <tr><td>Right click</td><td>Hide answers on: show that card's answer for 10 seconds</td></tr>
                 <tr><td><kbd>Esc</kbd></td><td>Close this box</td></tr>
             </table>
-            <p style="margin:12px 0 0;font-size:12px;opacity:.75">&#128190; Save unknown saves every card not marked Known to Dropbox /study/unknown_cards (or downloads it if you're not signed in).</p>
+            <p style="margin:12px 0 0;font-size:12px;opacity:.75">&#128190; Save unknown downloads every card not marked Known as a CSV.</p>
         </div>
     </div>
 
@@ -1394,7 +1396,7 @@
             Object.keys(originalData).forEach(function(r) {
                 var f = knownFront(r);
                 if (!f) return;
-                if (knownRows[r]) saved[f] = true; else delete saved[f];
+                if (knownRows[r]) { if (!saved[f]) saved[f] = true; } else delete saved[f];
             });
             try { localStorage.setItem(KNOWN_FRONTS_KEY, JSON.stringify(saved)); } catch (e) {}
         }
@@ -1540,10 +1542,7 @@
         function openKeysInfo() { document.getElementById('keysOverlay').classList.add('open'); }
         function closeKeysInfo() { document.getElementById('keysOverlay').classList.remove('open'); }
 
-        // ── SAVE UNKNOWN: every row not marked Known, as a CSV ──
-        // Signed into Dropbox → /study/unknown_cards/<same subpath>.csv (outside /study/anki so the
-        // Mac sync never imports it; overwritten each time). A file already in /study/unknown_cards
-        // is saved back over itself, so the list shrinks as you learn. Not signed in → download.
+        // ── SAVE UNKNOWN: every row not marked Known, downloaded as a CSV ──
         var UNKNOWN_ROOT = '/study/unknown_cards';
         var loadedDbxPath = null;
         var loadedName = '';
@@ -1558,7 +1557,7 @@
             return UNKNOWN_ROOT + '/' + name;
         }
 
-        async function saveUnknownCards() {
+        function saveUnknownCards() {
             var keys = Object.keys(originalData);
             if (!keys.length) { showToast('Load a CSV first'); return; }
             var rows = keys.filter(function(r) { return !knownRows[r]; }).map(function(r) {
@@ -1589,21 +1588,86 @@
             var path = unknownCsvTarget();
             var count = rows.length - (deck ? 1 : 0);
             var label = count + ' unknown card' + (count !== 1 ? 's' : '');
-            if (window.getDropboxAccessToken && window.getDropboxAccessToken()) {
-                try {
-                    await window.dropboxUploadFile(path, csv);
-                    showToast('Saved ' + label + ' to Dropbox ' + path);
-                    return;
-                } catch (err) {
-                    showToast('Dropbox save failed (' + err.message + ') — downloading instead');
-                }
-            }
             var a = document.createElement('a');
             a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
             a.download = 'unknown_' + path.split('/').pop();
             document.body.appendChild(a); a.click(); a.remove();
             setTimeout(function() { URL.revokeObjectURL(a.href); }, 1000);
-            showToast('Downloaded ' + label + ' (sign into Dropbox to save there)');
+            showToast('Downloaded ' + label);
+        }
+
+        // ── SYNC ANKI: two-way, by front text, for the deck in the deck box ──
+        // "Known" in Anki = the card isn't due for SYNC_DAYS days (Anki's own due date brings it
+        // back, so nothing has to run in the background). Needs Anki open on this computer.
+        //   marked here, not known in Anki, never pushed → setDueDate +SYNC_DAYS (and remember p)
+        //   known in Anki, not marked here               → mark it here
+        //   marked here, pushed before, Anki not known   → Anki brought it back: clear the mark
+        var ANKI_URL = 'http://localhost:8765';
+        var SYNC_DAYS = 21;
+
+        function ankiCall(action, params) {
+            return fetch(ANKI_URL, { method: 'POST', body: JSON.stringify({ action: action, version: 6, params: params || {} }) })
+                .then(function(r) { return r.json(); })
+                .then(function(res) { if (res.error) throw new Error(res.error); return res.result; });
+        }
+
+        // Anki search: quote the deck and escape \ " * _ (underscore is a wildcard there)
+        function ankiDeckQuery(deck) { return '"deck:' + deck.replace(/[\\"*_]/g, '\\$&') + '"'; }
+
+        function ankiFront(html) {
+            var text = new DOMParser().parseFromString(html || '', 'text/html').body.textContent || '';
+            return text.replace(/\s+/g, ' ').trim().toLowerCase();
+        }
+
+        async function syncAnki() {
+            var deck = document.getElementById('unknownDeck').value.trim();
+            if (!deck) { showToast('Type the Anki deck in the deck box first'); return; }
+            if (!Object.keys(originalData).length) { showToast('Load a CSV first'); return; }
+            showToast('Syncing with Anki…');
+            try {
+                var q = ankiDeckQuery(deck);
+                var allIds = await ankiCall('findCards', { query: q });
+                if (!allIds.length) { showToast('No cards in the Anki deck "' + deck + '" yet'); return; }
+                var info = await ankiCall('cardsInfo', { cards: allIds });
+                var knownIds = await ankiCall('findCards', { query: q + ' prop:due>=' + SYNC_DAYS });
+                var knownInAnki = {};
+                knownIds.forEach(function(id) { knownInAnki[id] = true; });
+
+                var byFront = {};  // front text -> { ids: [card ids], allKnown: bool }
+                info.forEach(function(c) {
+                    var fields = Object.keys(c.fields).map(function(k) { return c.fields[k]; })
+                        .sort(function(a, b) { return a.order - b.order; });
+                    var f = ankiFront(fields[0] ? fields[0].value : '');
+                    if (!f) return;
+                    var e = byFront[f] || (byFront[f] = { ids: [], allKnown: true });
+                    e.ids.push(c.cardId);
+                    if (!knownInAnki[c.cardId]) e.allKnown = false;
+                });
+
+                var saved = readKnownFronts(), now = Date.now();
+                var pushIds = [], pushed = 0, pulled = 0, cleared = 0, seen = {};
+                Object.keys(originalData).forEach(function(r) {
+                    var f = knownFront(r);
+                    if (!f || seen[f] || !byFront[f]) return;
+                    seen[f] = true;
+                    var a = byFront[f], mark = saved[f];
+                    if (a.allKnown) {
+                        if (!mark) pulled++;
+                        saved[f] = { p: now };
+                    } else if (mark && mark.p) {
+                        delete saved[f]; cleared++;
+                    } else if (mark) {
+                        a.ids.forEach(function(id) { if (!knownInAnki[id]) pushIds.push(id); });
+                        saved[f] = { p: now }; pushed++;
+                    }
+                });
+                if (pushIds.length) await ankiCall('setDueDate', { cards: pushIds, days: String(SYNC_DAYS) });
+                try { localStorage.setItem(KNOWN_FRONTS_KEY, JSON.stringify(saved)); } catch (e) {}
+                loadKnownRows();
+                showToast('Anki sync: ' + pushed + ' pushed (due +' + SYNC_DAYS + 'd), ' + pulled + ' marked from Anki, ' + cleared + ' cleared');
+            } catch (err) {
+                showToast(err instanceof TypeError ? "Can't reach Anki: open Anki on this computer" : 'Anki sync failed: ' + err.message);
+            }
         }
 
         document.addEventListener('DOMContentLoaded', function() {
