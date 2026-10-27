@@ -321,6 +321,12 @@
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
         }
 
+        #numBufBox {
+            position: fixed; right: 16px; bottom: 16px; z-index: 9999; display: none;
+            background: #3B82F6; color: #fff; font-size: 28px; font-weight: 700;
+            padding: 8px 18px; border-radius: 10px; box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+        }
+        #numBufBox.show { display: block; }
         .toast-notification.show {
             opacity: 1;
         }
@@ -862,6 +868,7 @@
             <button class="nav-stop-btn" onclick="stopSpeaking()" title="Stop speaking">&#9632; Stop</button>
             <div class="sep"></div>
             <button class="nav-stop-btn" onclick="openKnownCards()" title="Cards marked Known / still learning, to paste into Claude">&#128203; Known cards</button>
+            <input id="unknownDeck" type="text" placeholder="Anki deck, e.g. google_it::module_1" title="Optional. Adds a front/back/deck header and a deck column to Save unknown, so anki_app.py sorts the cards into this deck" oninput="try{localStorage.setItem('csv-unknown-deck',this.value)}catch(e){}" style="width:230px;padding:4px 8px;font-size:12px;border-radius:6px;border:1px solid #888;background:transparent;color:inherit">
             <button class="nav-stop-btn" onclick="saveUnknownCards()" title="Save every card not marked Known as a CSV: to Dropbox /study/unknown_cards when signed in, otherwise a download">&#128190; Save unknown</button>
             <button class="nav-stop-btn" id="btnHideMode" onclick="toggleHideMode()" title="Cards view: hide the answer (everything after the first field). ← toggles this; → or right-click reveals a card for 10 seconds">Hide answers</button>
             <button class="nav-stop-btn" onclick="openKeysInfo()" title="Keyboard shortcuts">&#9432; Keys</button>
@@ -896,6 +903,7 @@
     </div>
 
     <div id="toast" class="toast-notification">Copied!</div>
+    <div id="numBufBox"></div>
 
     <!-- Known cards (ported from vercel_flashcards/anki_manager.html) -->
     <div id="keysOverlay" onclick="if(event.target===this)closeKeysInfo()">
@@ -904,6 +912,7 @@
             <table>
                 <tr><td><kbd>&darr;</kbd> <kbd>&uarr;</kbd></td><td>Move to the next / previous card (rows in Table view)</td></tr>
                 <tr><td><kbd>Enter</kbd> <kbd>/</kbd> or <kbd>Space</kbd></td><td>Mark the highlighted card Known (press again to unmark)</td></tr>
+                <tr><td><kbd>0</kbd>-<kbd>9</kbd></td><td>Type a card number (e.g. 15) to jump the highlight to card #15; Enter or a short pause confirms. Then Enter marks it.</td></tr>
                 <tr><td><kbd>&larr;</kbd></td><td>Turn Hide answers on / off (switches to Cards view)</td></tr>
                 <tr><td><kbd>&rarr;</kbd></td><td>Hide answers on: show the highlighted card's answer for 10 seconds</td></tr>
                 <tr><td>Left click</td><td>Highlight a card (and do the current Click &rarr; mode)</td></tr>
@@ -1355,23 +1364,39 @@
         // unmark. Unmarked rows count as "Still learning". Marks are kept per file content in
         // localStorage. Rows read as "first column → other columns", like Anki's "Front → Back".
         var knownRows = {};       // data row index -> true
-        var knownStorageKey = '';
         var knownMode = 'all';
 
-        function knownHash(str) {
-            var h = 5381;
-            for (var i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
-            return (h >>> 0).toString(36);
+        // Marks are saved by each card's front text (not row number or file content), so editing
+        // or reordering the CSV keeps them. One shared set across files.
+        var KNOWN_FRONTS_KEY = 'csv-known-fronts';
+
+        function knownFront(r) {
+            return String(originalData[r] && originalData[r][0] || '').replace(/\s+/g, ' ').trim().toLowerCase();
+        }
+
+        function readKnownFronts() {
+            try { return JSON.parse(localStorage.getItem(KNOWN_FRONTS_KEY)) || {}; } catch (e) { return {}; }
         }
 
         function loadKnownRows(data) {
-            knownStorageKey = 'csv-known:' + knownHash(JSON.stringify(data));
-            try { knownRows = JSON.parse(localStorage.getItem(knownStorageKey)) || {}; } catch (e) { knownRows = {}; }
+            var saved = readKnownFronts();
+            knownRows = {};
+            Object.keys(originalData).forEach(function(r) {
+                var f = knownFront(r);
+                if (f && saved[f]) knownRows[r] = true;
+            });
             applyKnownMarks();
         }
 
+        // Update the shared set for the fronts in the current file only
         function saveKnownRows() {
-            try { localStorage.setItem(knownStorageKey, JSON.stringify(knownRows)); } catch (e) {}
+            var saved = readKnownFronts();
+            Object.keys(originalData).forEach(function(r) {
+                var f = knownFront(r);
+                if (!f) return;
+                if (knownRows[r]) saved[f] = true; else delete saved[f];
+            });
+            try { localStorage.setItem(KNOWN_FRONTS_KEY, JSON.stringify(saved)); } catch (e) {}
         }
 
         function applyKnownMarks() {
@@ -1443,6 +1468,12 @@
             if (!items.length) return;
             var rows = items.map(function(el) { return el.dataset.row; });
             var i = rows.indexOf(String(kbFocusRow));
+            if (/^[0-9]$/.test(e.key)) { e.preventDefault(); numType(e.key, rows); return; }
+            if (numBuf) {
+                if (e.key === 'Enter') { e.preventDefault(); numCommit(rows); return; }
+                if (e.key === 'Backspace') { e.preventDefault(); numBuf = numBuf.slice(0, -1); numShow(rows); return; }
+                numClear();  // any other key cancels the typed number and does its normal job
+            }
             if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
                 e.preventDefault();
                 if (i < 0) i = e.key === 'ArrowDown' ? 0 : rows.length - 1;
@@ -1459,6 +1490,44 @@
                 revealCard(items[i]);
             }
         });
+
+        // ── TYPE A NUMBER: 15 jumps the highlight to card #15 (the # shown on the card). It only
+        //    moves the highlight, so a typo never marks the wrong card; Enter then marks it.
+        //    Commits after a short pause, or at once on Enter / when no longer number could fit. ──
+        var numBuf = '';
+        var numTimer = null;
+        var NUM_PAUSE_MS = 900;
+
+        function numShow(rows) {
+            clearTimeout(numTimer);
+            var el = document.getElementById('numBufBox');
+            if (!numBuf) { el.classList.remove('show'); return; }
+            el.textContent = '#' + numBuf;
+            el.classList.add('show');
+            var total = Object.keys(originalData).length;
+            if (parseInt(numBuf, 10) * 10 > total) numCommit(rows);
+            else numTimer = setTimeout(function() { numCommit(kbItems().map(function(x) { return x.dataset.row; })); }, NUM_PAUSE_MS);
+        }
+
+        function numType(d, rows) {
+            if (!numBuf && d === '0') return;
+            numBuf += d;
+            numShow(rows);
+        }
+
+        function numClear() {
+            clearTimeout(numTimer);
+            numBuf = '';
+            document.getElementById('numBufBox').classList.remove('show');
+        }
+
+        function numCommit(rows) {
+            var n = parseInt(numBuf, 10);
+            numClear();
+            var row = String(n - 1);
+            if (rows.indexOf(row) >= 0) kbFocus(row);
+            else showToast('No card #' + n);
+        }
 
         // Show a card's answer for 10 seconds, then hide it again (→ or right-click)
         var REVEAL_MS = 10000;
@@ -1497,9 +1566,29 @@
                 return Object.keys(row).map(function(c) { return row[c]; });
             }).filter(function(row) { return row.some(function(c) { return String(c).trim(); }); });
             if (!rows.length) { showToast('Every card is marked Known — nothing to save'); return; }
+            // Optional deck: front,back,...,deck with a header (anki_app.py reads the deck column).
+            // A file we saved earlier already has that header and column; strip them first so
+            // saving it back over itself doesn't nest another one.
+            var deck = document.getElementById('unknownDeck').value.trim();
+            var first = rows[0];
+            var hadDeck = first.length > 2 && String(first[first.length - 1]).trim().toLowerCase() === 'deck'
+                && String(first[0]).trim().toLowerCase() === 'front';
+            if (hadDeck) rows = rows.slice(1).map(function(r) { return r.slice(0, -1); });
+            if (!rows.length) { showToast('Every card is marked Known — nothing to save'); return; }
+            if (deck) {
+                var width = rows.reduce(function(m, r) { return Math.max(m, r.length); }, 2);
+                var head = ['front', 'back'];
+                for (var k = 2; k < width; k++) head.push('col' + (k + 1));
+                rows = [head.concat('deck')].concat(rows.map(function(r) {
+                    var padded = r.slice();
+                    while (padded.length < width) padded.push('');
+                    return padded.concat(deck);
+                }));
+            }
             var csv = Papa.unparse(rows);
             var path = unknownCsvTarget();
-            var label = rows.length + ' unknown card' + (rows.length !== 1 ? 's' : '');
+            var count = rows.length - (deck ? 1 : 0);
+            var label = count + ' unknown card' + (count !== 1 ? 's' : '');
             if (window.getDropboxAccessToken && window.getDropboxAccessToken()) {
                 try {
                     await window.dropboxUploadFile(path, csv);
@@ -1516,6 +1605,10 @@
             setTimeout(function() { URL.revokeObjectURL(a.href); }, 1000);
             showToast('Downloaded ' + label + ' (sign into Dropbox to save there)');
         }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            try { document.getElementById('unknownDeck').value = localStorage.getItem('csv-unknown-deck') || ''; } catch (e) {}
+        });
 
         function clearKnownRows() {
             knownRows = {};
