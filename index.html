@@ -1927,8 +1927,41 @@
             }).filter(Boolean);
         }
 
+        // A front that is a FEN string prints as a board diagram (white on the bottom, side to move noted).
+        var FEN_RE = /^\s*([prnbqkPRNBQK1-8]+\/){7}[prnbqkPRNBQK1-8]+(\s+[wb]\b.*)?$/;
+        function fenBoardHtml(fen) {
+            var parts = fen.trim().split(/\s+/), rows = parts[0].split('/'), board = [];
+            for (var i = 0; i < 8; i++) {
+                var cells = [];
+                rows[i].split('').forEach(function(ch) {
+                    if (/[1-8]/.test(ch)) { for (var k = 0; k < +ch; k++) cells.push(null); } else cells.push(ch);
+                });
+                if (cells.length !== 8) return null;
+                board.push(cells);
+            }
+            var G = { K: ['\u2654', '\u265A'], Q: ['\u2655', '\u265B'], R: ['\u2656', '\u265C'], B: ['\u2657', '\u265D'], N: ['\u2658', '\u265E'], P: ['\u2659', '\u265F'] };
+            var S = 40, svg = '<svg class="fenboard" viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg">', pcs = '';
+            for (var r = 0; r < 8; r++) for (var f = 0; f < 8; f++) {
+                svg += '<rect x="' + f * S + '" y="' + r * S + '" width="' + S + '" height="' + S + '" fill="' + ((r + f) % 2 ? '#c8c8c8' : '#fff') + '"/>';
+                var pc = board[r][f];
+                if (!pc) continue;
+                var up = pc.toUpperCase(), a = 'x="' + (f * S + S / 2) + '" y="' + (r * S + S / 2 + 1) + '" font-size="34" text-anchor="middle" dominant-baseline="central"';
+                if (pc === up) {
+                    pcs += '<text ' + a + ' fill="#fff" stroke="#fff" stroke-width="5" stroke-linejoin="round">' + G[up][1] + '\uFE0E</text><text ' + a + ' fill="#000">' + G[up][0] + '\uFE0E</text>';
+                } else {
+                    pcs += '<text ' + a + ' fill="#000" stroke="#fff" stroke-width="2.6" stroke-linejoin="round" paint-order="stroke">' + G[up][1] + '\uFE0E</text>';
+                }
+            }
+            svg += pcs + '<rect width="320" height="320" fill="none" stroke="#000" stroke-width="2"/></svg>';
+            return svg + '<div class="fenside">' + (parts[1] === 'b' ? 'Black' : 'White') + ' to move</div>';
+        }
+
         function printCardHtml(card, side) {
             if (!card) return '<div class="card empty"></div>';
+            if (side === 'front' && FEN_RE.test(card.front)) {
+                var bd = fenBoardHtml(card.front);
+                if (bd) return '<div class="card fen"><span class="num">#' + card.n + '</span>' + bd + '</div>';
+            }
             var text = side === 'front' ? card.front : card.back;
             var len = text.length;
             var size = side === 'front' ? (len > 45 ? 'sm' : 'lg') : (len > 150 ? 'xs' : len > 90 ? 'sm' : 'md');
@@ -1958,6 +1991,8 @@
                 + '.sheet:last-child{break-after:auto;page-break-after:auto}'
                 + '.card{box-sizing:border-box;border:1px dashed #b5b5b5;padding:0.2in 0.22in;position:relative;display:flex;align-items:center;justify-content:center;text-align:center;overflow:hidden}'
                 + '.card.empty{border:none}'
+                + '.card.fen{flex-direction:column;padding:0.1in;gap:0.03in}'
+                + '.fenboard{height:2.2in;width:2.2in}.fenside{font-size:9pt;color:#555}'
                 + '.num{position:absolute;top:0.07in;left:0.1in;font-size:9pt;color:#888}'
                 + '.tick{position:absolute;bottom:0.05in;right:0.1in;font-size:15pt;color:#888}'
                 + '.t{line-height:1.3;overflow-wrap:anywhere}'
