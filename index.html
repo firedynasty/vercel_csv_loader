@@ -787,6 +787,10 @@
         #csv-table tbody tr.known td { box-shadow: inset 0 0 0 999px rgba(217,119,6,0.18); }
         body.known-mode .csv-card, body.known-mode #csv-table td, body.known-mode #csv-table th { cursor: pointer; }
 
+        /* "Show unknown" toggle (view-toggle-bar) — hides cards/rows already marked Known */
+        body.hide-known-cards .csv-card.known,
+        body.hide-known-cards #csv-table tbody tr.known { display: none; }
+
         /* Keyboard focus: ↑/↓ moves it, Enter or / toggles Known */
         .csv-card.kb-focus { outline: 2px solid #3B82F6; outline-offset: 2px; }
         #csv-table tbody tr.kb-focus td { box-shadow: inset 0 0 0 999px rgba(59,130,246,0.22); }
@@ -932,8 +936,10 @@
             <h3>&#128424; Print flashcards</h3>
             <label><input type="radio" name="printPile" value="unknown" checked> Only cards not marked Known</label>
             <label><input type="radio" name="printPile" value="all"> All cards</label>
+            <label><input type="radio" name="printMode" value="duplex" checked> Duplex (double-sided): backs mirrored to line up when flipped</label>
+            <label><input type="radio" name="printMode" value="single"> Single pages (one-sided): backs in the same order as fronts</label>
             <label><input type="checkbox" id="printTest"> Test sheet only (first 8 cards, front + back) to check alignment</label>
-            <p>8 cards per US Letter sheet, 2 columns &times; 4 rows. Each card shows its number (#15 = the number you type here to mark it Known). In the print dialog choose <b>Two-sided &rarr; Flip on long edge</b>, scale 100%, margins none.</p>
+            <p>8 cards per US Letter sheet, 2 columns &times; 4 rows. Each card shows its number (#15 = the number you type here to mark it Known). For Duplex, choose <b>Two-sided &rarr; Flip on long edge</b> in the print dialog; for Single pages, turn two-sided off. Scale 100%, margins none.</p>
             <div class="print-footer">
                 <button class="known-btn" onclick="closePrintDialog()">Cancel</button>
                 <button class="known-btn primary" onclick="printCards()">Print</button>
@@ -1275,9 +1281,13 @@
             var bodyRows = data.slice(1);
 
             // View toggle bar
+            var hideKnown = localStorage.getItem('csv-hide-known') === '1';
             var html = '<div class="view-toggle-bar">'
                 + '<button id="btnViewTable" onclick="setView(\'table\')">Table</button>'
                 + '<button id="btnViewCards" onclick="setView(\'cards\')">Cards</button>'
+                + '<button id="btnHideKnown" class="' + (hideKnown ? 'active' : '') + '" onclick="toggleHideKnown()" '
+                + 'title="Hide cards already marked Known, to focus on what\'s still unknown">'
+                + (hideKnown ? 'Showing unknown' : 'Show unknown') + '</button>'
                 + '<span id="cardFontControls">'
                 + '<button onclick="changeCardFont(-1)" title="Smaller card text">A&minus;</button>'
                 + '<button onclick="changeCardFont(1)" title="Larger card text">A+</button>'
@@ -1455,6 +1465,24 @@
             document.querySelectorAll('#cards-view-wrap .csv-card[data-row], #csv-table tbody tr[data-row]').forEach(function(el) {
                 el.classList.toggle('known', !!knownRows[el.dataset.row]);
             });
+        }
+
+        // "Show unknown" (view-toggle-bar, next to Table/Cards): hides anything already marked
+        // Known via body.hide-known-cards + CSS, same approach as the Hide-answers toggle. Stays
+        // correct automatically as Known marks change (clicking, Sync Anki, Load from Anki) since
+        // it only hides by the .known class those already apply — no separate re-filter needed.
+        document.addEventListener('DOMContentLoaded', function() {
+            document.body.classList.toggle('hide-known-cards', localStorage.getItem('csv-hide-known') === '1');
+        });
+
+        function toggleHideKnown() {
+            var on = localStorage.getItem('csv-hide-known') !== '1';
+            try { localStorage.setItem('csv-hide-known', on ? '1' : '0'); } catch (e) {}
+            document.body.classList.toggle('hide-known-cards', on);
+            var btn = document.getElementById('btnHideKnown');
+            if (btn) { btn.classList.toggle('active', on); btn.textContent = on ? 'Showing unknown' : 'Show unknown'; }
+            var hidden = Object.keys(knownRows).length;
+            showToast(on ? 'Hiding ' + hidden + ' known card(s)' : 'Showing all cards');
         }
 
         function toggleKnownRow(r) {
@@ -1834,7 +1862,7 @@
                 + (side === 'back' ? '<span class="tick">&#9744;</span>' : '') + '</div>';
         }
 
-        function buildPrintHtml(cards) {
+        function buildPrintHtml(cards, duplex) {
             var sheets = '';
             for (var i = 0; i < cards.length; i += PRINT_PER_SHEET) {
                 var chunk = cards.slice(i, i + PRINT_PER_SHEET);
@@ -1843,7 +1871,7 @@
                 for (var r = 0; r < PRINT_PER_SHEET; r += PRINT_COLS) {
                     var row = chunk.slice(r, r + PRINT_COLS);
                     front += row.map(function(c) { return printCardHtml(c, 'front'); }).join('');
-                    back += row.slice().reverse().map(function(c) { return printCardHtml(c, 'back'); }).join('');
+                    back += (duplex ? row.slice().reverse() : row).map(function(c) { return printCardHtml(c, 'back'); }).join('');
                 }
                 sheets += '<div class="sheet">' + front + '</div><div class="sheet">' + back + '</div>';
             }
@@ -1868,6 +1896,7 @@
             var cards = printCardList(onlyUnknown);
             if (document.getElementById('printTest').checked) cards = cards.slice(0, PRINT_PER_SHEET);
             if (!cards.length) { showToast('No cards to print'); return; }
+            var duplex = document.querySelector('input[name="printMode"]:checked').value === 'duplex';
             closePrintDialog();
             var f = document.createElement('iframe');
             f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
@@ -1876,9 +1905,9 @@
                 f.contentWindow.print();
                 setTimeout(function() { f.remove(); }, 60000);
             };
-            f.srcdoc = buildPrintHtml(cards);
+            f.srcdoc = buildPrintHtml(cards, duplex);
             document.body.appendChild(f);
-            showToast('Printing ' + cards.length + ' card' + (cards.length !== 1 ? 's' : '') + ' on ' + Math.ceil(cards.length / PRINT_PER_SHEET) + ' sheet(s), double-sided');
+            showToast('Printing ' + cards.length + ' card' + (cards.length !== 1 ? 's' : '') + ' on ' + Math.ceil(cards.length / PRINT_PER_SHEET) + ' sheet(s), ' + (duplex ? 'double-sided' : 'single pages'));
         }
 
         document.addEventListener('DOMContentLoaded', function() {
