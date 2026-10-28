@@ -964,7 +964,7 @@
             <table>
                 <tr><td><kbd>&darr;</kbd> <kbd>&uarr;</kbd></td><td>Move to the next / previous card (rows in Table view)</td></tr>
                 <tr><td><kbd>Enter</kbd> <kbd>/</kbd> or <kbd>Space</kbd></td><td>Mark the highlighted card Known (press again to unmark) — or, in Speak Front / Speak Back click mode, read that side aloud instead (even if Front only is hiding the Back)</td></tr>
-                <tr><td><kbd>0</kbd>-<kbd>9</kbd></td><td>Type a card number (e.g. 15) to jump the highlight to card #15; Enter or a short pause confirms. Then Enter marks it.</td></tr>
+                <tr><td><kbd>0</kbd>-<kbd>9</kbd></td><td>Type a card number (e.g. 15) — Enter or a short pause jumps to card #15 and runs the current Click &rarr; mode on it (Known toggle, or speak Front/Back)</td></tr>
                 <tr><td><kbd>&larr;</kbd></td><td>Turn Hide answers on / off (switches to Cards view)</td></tr>
                 <tr><td><kbd>&rarr;</kbd></td><td>Hide answers on: show the highlighted card's answer for 10 seconds</td></tr>
                 <tr><td>Load from Anki</td><td>Loads the deck in the box straight from Anki (no CSV needed) as Front/Back cards; cards not due for 21+ days in Anki load already marked Known. Leave the box empty to pick a deck from a list instead</td></tr>
@@ -1211,7 +1211,8 @@
             });
             var signedIn = !!(window.getDropboxAccessToken && window.getDropboxAccessToken());
             if (clickMode === 'dropbox' && !signedIn) showToast('Sign in to Dropbox (DB button) to send clicks there');
-            if ((clickMode === 'speakFront' || clickMode === 'speakBack') && localStorage.getItem('csv-view') !== 'cards') setView('cards');
+            // No forced switch to Cards view for Speak Front/Back: Table view supports them too
+            // now (left click and Enter both speak the whole row, same as Cards).
             document.body.classList.toggle('known-mode', clickMode === 'known');
         }
 
@@ -1570,6 +1571,7 @@
             document.querySelectorAll('.kb-focus').forEach(function(el) { el.classList.remove('kb-focus'); });
             var el = kbItems().filter(function(e) { return e.dataset.row === String(row); })[0];
             if (el) { el.classList.add('kb-focus'); el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+            return el;
         }
 
         // Speak Front / Speak Back click modes, and Enter/Space/'/': speak the whole row's Front
@@ -1591,6 +1593,15 @@
             if (!text) return;
             var backEl = item.querySelector('[data-col]:not([data-col="0"])') || item;
             speakField(text, backEl);
+        }
+
+        // Shared by Enter/Space/'/' on a focused row AND by committing a typed card number: run
+        // whatever the active Click → mode does — speak Front/Back, or toggle Known otherwise.
+        // One place for "what does the keyboard do," same as the click handlers reuse these too.
+        function doClickModeAction(item, row) {
+            if (clickMode === 'speakBack') speakBackOfRow(item, row);
+            else if (clickMode === 'speakFront') speakFrontOfRow(item, row);
+            else toggleKnownRow(parseInt(row));
         }
 
         document.addEventListener('keydown', function(e) {
@@ -1620,13 +1631,7 @@
                 kbFocus(rows[i]);
             } else if ((e.key === 'Enter' || e.key === '/' || e.key === ' ') && i >= 0) {
                 e.preventDefault();
-                if (clickMode === 'speakBack') {
-                    speakBackOfRow(items[i], rows[i]);
-                } else if (clickMode === 'speakFront') {
-                    speakFrontOfRow(items[i], rows[i]);
-                } else {
-                    toggleKnownRow(parseInt(rows[i]));
-                }
+                doClickModeAction(items[i], rows[i]);
                 kbFocus(rows[i]);  // keep the highlight after the marks re-render
             } else if (e.key === 'ArrowRight' && document.body.classList.contains('cards-hide')
                        && items[0].classList.contains('csv-card')) {
@@ -1636,9 +1641,10 @@
             }
         });
 
-        // ── TYPE A NUMBER: 15 jumps the highlight to card #15 (the # shown on the card). It only
-        //    moves the highlight, so a typo never marks the wrong card; Enter then marks it.
-        //    Commits after a short pause, or at once on Enter / when no longer number could fit. ──
+        // ── TYPE A NUMBER: 15 jumps to card #15 (the # shown on the card) and runs the active
+        //    Click → mode on it — Known toggle, or speak Front/Back — the same thing Enter does
+        //    on a focused card. Commits after a short pause, or at once on Enter / when no
+        //    longer number could fit. ──
         var numBuf = '';
         var numTimer = null;
         var NUM_PAUSE_MS = 900;
@@ -1669,9 +1675,13 @@
         function numCommit(rows) {
             var n = parseInt(numBuf, 10);
             numClear();
-            var row = String(n - 1);
-            if (rows.indexOf(row) >= 0) kbFocus(row);
-            else showToast('No card #' + n);
+            var row = String(n);  // data-row is 1-indexed in both views now, matching the "#N" label exactly
+            if (rows.indexOf(row) >= 0) {
+                var el = kbFocus(row);
+                if (el) doClickModeAction(el, row);
+            } else {
+                showToast('No card #' + n);
+            }
         }
 
         // Show a card's answer for 10 seconds, then hide it again (→ or right-click)
