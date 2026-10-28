@@ -717,6 +717,21 @@
             border: none; border-radius: 8px; padding: 10px 24px; font-size: 14px; cursor: pointer;
         }
 
+        /* Anki Deck Picker Modal — same look as the Dropbox CSV browser (.dcm-* classes) */
+        #ankiDeckOverlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.72); z-index: 9999;
+            align-items: center; justify-content: center;
+        }
+        #ankiDeckOverlay.open { display: flex; }
+        #ankiDeckModal {
+            background: #1a1a2e; border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 12px; width: min(420px, 95vw);
+            max-height: 80vh; display: flex; flex-direction: column; overflow: hidden;
+        }
+        body.light-mode #ankiDeckModal { background: #fff; border-color: #ddd; }
+        #ankiDeckList { overflow-y: auto; flex: 1; padding: 4px 0; }
+
         /* ── STICKY NAVBAR ── */
         .sticky-nav {
             position: sticky; top: 0; z-index: 1000;
@@ -876,6 +891,7 @@
             <div class="sep"></div>
             <button class="nav-stop-btn" onclick="openKnownCards()" title="Cards marked Known / still learning, to paste into Claude">&#128203; Known cards</button>
             <input id="unknownDeck" type="text" placeholder="Anki deck, e.g. google_it::module_1" title="Anki deck, e.g. google_it::module_1. Save unknown adds it as a deck column (anki_manager sorts the cards into it); Sync Anki reads and updates this deck" oninput="try{localStorage.setItem('csv-unknown-deck',this.value)}catch(e){}" style="width:230px;padding:4px 8px;font-size:12px;border-radius:6px;border:1px solid #888;background:transparent;color:inherit">
+            <button class="nav-stop-btn" onclick="loadFromAnki()" title="Load the deck in the box straight from Anki — no CSV needed (Anki must be open on this computer). Empty box opens a deck picker instead. Cards Anki shows as not due for 21+ days load already marked Known">&#11015; Load from Anki</button>
             <button class="nav-stop-btn" onclick="syncAnki()" title="Two-way sync with the deck in the box (Anki must be open on this computer). Cards marked Known here get their due date pushed out 21 days; cards Anki shows as not due for 21+ days become Known here; marks whose card is due again are cleared">&#128260; Sync Anki</button>
             <button class="nav-stop-btn" onclick="openPrintDialog()" title="Print the loaded cards as double-sided flashcards (8 per Letter sheet, flip on long edge)">&#128424; Print cards</button>
             <button class="nav-stop-btn" onclick="saveUnknownCards()" title="Download every card not marked Known as a CSV (unknown_cards.csv)">&#128190; Save unknown</button>
@@ -937,6 +953,7 @@
                 <tr><td><kbd>0</kbd>-<kbd>9</kbd></td><td>Type a card number (e.g. 15) to jump the highlight to card #15; Enter or a short pause confirms. Then Enter marks it.</td></tr>
                 <tr><td><kbd>&larr;</kbd></td><td>Turn Hide answers on / off (switches to Cards view)</td></tr>
                 <tr><td><kbd>&rarr;</kbd></td><td>Hide answers on: show the highlighted card's answer for 10 seconds</td></tr>
+                <tr><td>Load from Anki</td><td>Loads the deck in the box straight from Anki (no CSV needed) as Front/Back cards; cards not due for 21+ days in Anki load already marked Known. Leave the box empty to pick a deck from a list instead</td></tr>
                 <tr><td>Sync Anki</td><td>With the deck in the box: Known here &rarr; due date +21 days in Anki; not due for 21+ days in Anki &rarr; Known here; card due again &rarr; mark cleared</td></tr>
                 <tr><td>Left click</td><td>Highlight a card (and do the current Click &rarr; mode)</td></tr>
                 <tr><td>Right click</td><td>Hide answers on: show that card's answer for 10 seconds</td></tr>
@@ -986,6 +1003,18 @@
             <div id="dbxCsvStatus"></div>
             <div id="dbxCsvBreadcrumb"></div>
             <div id="dbxCsvList"></div>
+        </div>
+    </div>
+
+    <!-- Anki Deck Picker Modal (shown when Load from Anki is clicked with the deck box empty) -->
+    <div id="ankiDeckOverlay" onclick="if(event.target===this)closeAnkiDeckModal()">
+        <div id="ankiDeckModal">
+            <div class="dcm-header">
+                <h3>🗂️ Pick an Anki deck</h3>
+                <button class="dcm-close" onclick="closeAnkiDeckModal()">&times;</button>
+            </div>
+            <div id="ankiDeckStatus" style="padding:8px 16px;font-size:12px;color:#888"></div>
+            <div id="ankiDeckList"></div>
         </div>
     </div>
 
@@ -1485,7 +1514,7 @@
                 if (e.key === 'Escape') closeKeysInfo();
                 return;
             }
-            if (document.querySelector('#knownOverlay.open, #dbxCsvOverlay.open, #printOverlay.open')) return;
+            if (document.querySelector('#knownOverlay.open, #dbxCsvOverlay.open, #printOverlay.open, #ankiDeckOverlay.open')) return;
             if (e.key === 'ArrowLeft') { e.preventDefault(); toggleHideMode(); return; }
             var items = kbItems();
             if (!items.length) return;
@@ -1638,6 +1667,90 @@
         function ankiFront(html) {
             var text = new DOMParser().parseFromString(html || '', 'text/html').body.textContent || '';
             return text.replace(/\s+/g, ' ').trim().toLowerCase();
+        }
+
+        // Plain display text for a field (same HTML-stripping as ankiFront, but case/spacing kept
+        // as-is for the table/cards view instead of normalized for front-text matching).
+        function ankiPlainText(html) {
+            var text = new DOMParser().parseFromString(html || '', 'text/html').body.textContent || '';
+            return text.replace(/\n{3,}/g, '\n\n').trim();
+        }
+
+        // ── LOAD FROM ANKI: pull a deck straight from Anki into the table/cards view, no CSV
+        // needed first. Cards Anki already shows as not due for SYNC_DAYS+ days load pre-marked
+        // Known here too, same bucket Sync Anki uses — so "the cards I already know" show up
+        // marked the moment you load, without a separate Sync Anki click. ──
+        // ── ANKI DECK PICKER: Load from Anki with an empty deck box opens this instead of just
+        // complaining — lists every deck (AnkiConnect deckNames), click one to fill the box and
+        // load it immediately. ──
+        function closeAnkiDeckModal() {
+            document.getElementById('ankiDeckOverlay').classList.remove('open');
+        }
+
+        async function openAnkiDeckPicker() {
+            document.getElementById('ankiDeckOverlay').classList.add('open');
+            var status = document.getElementById('ankiDeckStatus'), list = document.getElementById('ankiDeckList');
+            status.textContent = 'Loading decks…';
+            list.innerHTML = '';
+            try {
+                var names = (await ankiCall('deckNames')).sort();
+                status.textContent = names.length + ' deck(s) — click one to load';
+                list.innerHTML = names.map(function(n) {
+                    return '<div class="dcm-item folder" onclick="pickAnkiDeck(\'' + n.replace(/'/g, "\\'") + '\')">'
+                        + '<span class="dcm-icon">🗂️</span><span class="dcm-name">' + escHtml(n) + '</span></div>';
+                }).join('');
+            } catch (err) {
+                status.textContent = err instanceof TypeError ? "Can't reach Anki: open Anki on this computer" : 'Error: ' + err.message;
+            }
+        }
+
+        function pickAnkiDeck(name) {
+            document.getElementById('unknownDeck').value = name;
+            try { localStorage.setItem('csv-unknown-deck', name); } catch (e) {}
+            closeAnkiDeckModal();
+            navigator.clipboard.writeText(name).then(function() {
+                showToast('Copied "' + name + '" (also filled the deck box) — click Load from Anki when ready');
+            }).catch(function() {
+                showToast('Filled the deck box with "' + name + '" — click Load from Anki when ready');
+            });
+        }
+
+        async function loadFromAnki() {
+            var deck = document.getElementById('unknownDeck').value.trim();
+            if (!deck) { openAnkiDeckPicker(); return; }
+            showToast('Loading "' + deck + '" from Anki…');
+            try {
+                var q = ankiDeckQuery(deck);
+                var allIds = await ankiCall('findCards', { query: q });
+                if (!allIds.length) { showToast('No cards in the Anki deck "' + deck + '" yet'); return; }
+                var info = await ankiCall('cardsInfo', { cards: allIds });
+                var knownIds = await ankiCall('findCards', { query: q + ' prop:due>=' + SYNC_DAYS });
+                var knownInAnki = {};
+                knownIds.forEach(function(id) { knownInAnki[id] = true; });
+
+                var saved = readKnownFronts(), seen = {};
+                var rows = [], marked = 0;
+                info.forEach(function(c) {
+                    var fields = Object.keys(c.fields).map(function(k) { return c.fields[k]; })
+                        .sort(function(a, b) { return a.order - b.order; });
+                    var frontHtml = fields[0] ? fields[0].value : '';
+                    var front = ankiFront(frontHtml);
+                    if (!front || seen[front]) return;  // one row per unique front, like Sync Anki
+                    seen[front] = true;
+                    var back = fields.slice(1).map(function(f) { return ankiPlainText(f.value); })
+                        .filter(Boolean).join('\n');
+                    rows.push([ankiPlainText(frontHtml), back]);
+                    if (knownInAnki[c.cardId] && !saved[front]) { saved[front] = true; marked++; }
+                });
+                try { localStorage.setItem(KNOWN_FRONTS_KEY, JSON.stringify(saved)); } catch (e) {}
+
+                renderTableFromData([['Front', 'Back']].concat(rows));
+                loadKnownRows();
+                showToast('Loaded ' + rows.length + ' card(s) from Anki "' + deck + '"'
+                    + (marked ? ' · ' + marked + ' already known' : ''));
+            } catch (err) {
+                showToast(err instanceof TypeError ? "Can't reach Anki: open Anki on this computer" : 'Load from Anki failed: ' + err.message);
+            }
         }
 
         async function syncAnki() {
