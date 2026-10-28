@@ -768,7 +768,8 @@
         body.light-mode .click-mode-toggle button.active { color: #fff; }
         body.light-mode .nav-stop-btn { color: #333; border-color: #ccc; }
 
-        .click-mode-toggle button[data-mode="speak"].active { background: #16a34a; }
+        .click-mode-toggle button[data-mode="speakFront"].active,
+        .click-mode-toggle button[data-mode="speakBack"].active { background: #16a34a; }
         .click-mode-toggle button[data-mode="known"].active { background: #d97706; }
         .sticky-nav { flex-direction: column; align-items: stretch; gap: 6px; }
         .sticky-nav .nav-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
@@ -790,6 +791,12 @@
         /* "Show unknown" toggle (view-toggle-bar) — hides cards/rows already marked Known */
         body.hide-known-cards .csv-card.known,
         body.hide-known-cards #csv-table tbody tr.known { display: none; }
+
+        /* "Front only" toggle (view-toggle-bar) — permanently hides the Back, no reveal (unlike
+           Hide answers, which is a temporary reveal-on-click quiz mode in Cards view only) */
+        body.front-only .csv-card .card-answer,
+        body.front-only #csv-table td[data-col]:not([data-col="0"]),
+        body.front-only #csv-table thead th:not(:first-child) { display: none; }
 
         /* Keyboard focus: ↑/↓ moves it, Enter or / toggles Known */
         .csv-card.kb-focus { outline: 2px solid #3B82F6; outline-offset: 2px; }
@@ -878,7 +885,8 @@
             <div class="click-mode-toggle">
                 <button data-mode="clipboard" onclick="setClickMode('clipboard')" title="Clicking a cell copies it to your local clipboard">Clipboard</button>
                 <button data-mode="dropbox" onclick="setClickMode('dropbox')" title="Clicking a cell sends it to Dropbox /blob_vercel_replacement/blob_clipboard_content.txt (same file as vercel_clipboard_manager; requires Dropbox sign-in)">Dropbox</button>
-                <button data-mode="speak" onclick="setClickMode('speak')" title="Cards view: clicking a field reads it aloud">Speak</button>
+                <button data-mode="speakFront" onclick="setClickMode('speakFront')" title="Click a card/row, or Enter/Space/'/', to read its Front aloud">Speak Front</button>
+                <button data-mode="speakBack" onclick="setClickMode('speakBack')" title="Click a card/row, or Enter/Space/'/', to read its Back aloud">Speak Back</button>
                 <button data-mode="known" onclick="setClickMode('known')" title="Clicking a card (or table row) marks it Known; click again to unmark">Known</button>
             </div>
             <div class="sep"></div>
@@ -955,7 +963,7 @@
             <h3>Keyboard shortcuts <button class="keys-close" onclick="closeKeysInfo()">&times;</button></h3>
             <table>
                 <tr><td><kbd>&darr;</kbd> <kbd>&uarr;</kbd></td><td>Move to the next / previous card (rows in Table view)</td></tr>
-                <tr><td><kbd>Enter</kbd> <kbd>/</kbd> or <kbd>Space</kbd></td><td>Mark the highlighted card Known (press again to unmark)</td></tr>
+                <tr><td><kbd>Enter</kbd> <kbd>/</kbd> or <kbd>Space</kbd></td><td>Mark the highlighted card Known (press again to unmark) — or, in Speak Front / Speak Back click mode, read that side aloud instead (even if Front only is hiding the Back)</td></tr>
                 <tr><td><kbd>0</kbd>-<kbd>9</kbd></td><td>Type a card number (e.g. 15) to jump the highlight to card #15; Enter or a short pause confirms. Then Enter marks it.</td></tr>
                 <tr><td><kbd>&larr;</kbd></td><td>Turn Hide answers on / off (switches to Cards view)</td></tr>
                 <tr><td><kbd>&rarr;</kbd></td><td>Hide answers on: show the highlighted card's answer for 10 seconds</td></tr>
@@ -1192,7 +1200,7 @@
 
         // ============ CLICK MODE (clipboard vs Dropbox) ============
         const DROPBOX_CLIPBOARD_PATH = '/blob_vercel_replacement/blob_clipboard_content.txt';
-        var CLICK_MODES = ['clipboard', 'dropbox', 'speak', 'known'];
+        var CLICK_MODES = ['clipboard', 'dropbox', 'speakFront', 'speakBack', 'known'];
         var clickMode = CLICK_MODES.indexOf(localStorage.getItem('csv-click-mode')) >= 0 ? localStorage.getItem('csv-click-mode') : 'clipboard';
 
         function setClickMode(mode) {
@@ -1203,7 +1211,7 @@
             });
             var signedIn = !!(window.getDropboxAccessToken && window.getDropboxAccessToken());
             if (clickMode === 'dropbox' && !signedIn) showToast('Sign in to Dropbox (DB button) to send clicks there');
-            if (clickMode === 'speak' && localStorage.getItem('csv-view') !== 'cards') setView('cards');
+            if ((clickMode === 'speakFront' || clickMode === 'speakBack') && localStorage.getItem('csv-view') !== 'cards') setView('cards');
             document.body.classList.toggle('known-mode', clickMode === 'known');
         }
 
@@ -1282,12 +1290,16 @@
 
             // View toggle bar
             var hideKnown = localStorage.getItem('csv-hide-known') === '1';
+            var frontOnly = localStorage.getItem('csv-front-only') === '1';
             var html = '<div class="view-toggle-bar">'
                 + '<button id="btnViewTable" onclick="setView(\'table\')">Table</button>'
                 + '<button id="btnViewCards" onclick="setView(\'cards\')">Cards</button>'
                 + '<button id="btnHideKnown" class="' + (hideKnown ? 'active' : '') + '" onclick="toggleHideKnown()" '
                 + 'title="Hide cards already marked Known, to focus on what\'s still unknown">'
                 + (hideKnown ? 'Showing unknown' : 'Show unknown') + '</button>'
+                + '<button id="btnFrontOnly" class="' + (frontOnly ? 'active' : '') + '" onclick="toggleFrontOnly()" '
+                + 'title="Hide the Back/answer entirely, no reveal — just browse fronts">'
+                + (frontOnly ? 'Front only ✓' : 'Front only') + '</button>'
                 + '<span id="cardFontControls">'
                 + '<button onclick="changeCardFont(-1)" title="Smaller card text">A&minus;</button>'
                 + '<button onclick="changeCardFont(1)" title="Larger card text">A+</button>'
@@ -1313,12 +1325,14 @@
             html += '</tbody></table></div>';
             html += '</div>'; // end table-view-wrap
 
-            // Cards view — each row (including the first; CSVs often have no header) is a card,
-            // fields stacked vertically without labels, empty fields skipped
+            // Cards view — one card per body row (same header row Table treats as the header,
+            // excluded here too, so the two views agree on row numbers/data-row), fields stacked
+            // vertically without labels, empty fields skipped
             html += '<div id="cards-view-wrap">';
-            data.forEach(function(row, rowIndex) {
+            bodyRows.forEach(function(row, idx) {
+                var rowIndex = idx + 1;
                 html += '<div class="csv-card" data-row="' + rowIndex + '">';
-                html += '<div class="card-num">#' + (rowIndex + 1) + '</div>';
+                html += '<div class="card-num">#' + rowIndex + '</div>';
                 var shown = 0;
                 row.forEach(function(cell, colIndex) {
                     var text = cell !== null && cell !== undefined ? String(cell) : '';
@@ -1339,6 +1353,10 @@
                     var r = parseInt(this.dataset.row);
                     var c = parseInt(this.dataset.col);
                     if (clickMode === 'known') { toggleKnownRow(r); return; }
+                    // Left click matches Enter: it speaks the whole row's Front/Back, not just
+                    // the cell you clicked — click anywhere in the row, same result either way.
+                    if (clickMode === 'speakFront') { speakFrontOfRow(this.closest('tr'), String(r)); return; }
+                    if (clickMode === 'speakBack') { speakBackOfRow(this.closest('tr'), String(r)); return; }
                     copyToClipboard(originalData[r][c], this);
                 });
             });
@@ -1355,15 +1373,20 @@
                     var r = parseInt(this.dataset.row);
                     var c = parseInt(this.dataset.col);
                     if (clickMode === 'known') return; // handled by the card's own listener
-                    if (clickMode === 'speak') { speakField(originalData[r][c], this); return; }
+                    if (clickMode === 'speakFront' || clickMode === 'speakBack') return; // ditto — speaks the whole row, not just this field
                     copyToClipboard(originalData[r][c], this);
                 });
             });
 
             document.querySelectorAll('#cards-view-wrap .csv-card').forEach(function(card) {
                 card.addEventListener('click', function() {
-                    if (clickMode === 'known') toggleKnownRow(parseInt(this.dataset.row));
-                    kbFocus(this.dataset.row);  // left click highlights the card for ↑/↓/→/Enter
+                    var row = this.dataset.row;
+                    if (clickMode === 'known') toggleKnownRow(parseInt(row));
+                    // Left click matches Enter: speaks the whole row's Front/Back no matter
+                    // which field inside the card you actually clicked.
+                    else if (clickMode === 'speakFront') speakFrontOfRow(this, row);
+                    else if (clickMode === 'speakBack') speakBackOfRow(this, row);
+                    kbFocus(row);  // left click highlights the card for ↑/↓/→/Enter
                 });
                 card.addEventListener('contextmenu', function(e) {
                     if (!document.body.classList.contains('cards-hide')) return; // normal menu when not hiding
@@ -1485,6 +1508,21 @@
             showToast(on ? 'Hiding ' + hidden + ' known card(s)' : 'Showing all cards');
         }
 
+        // "Front only" (view-toggle-bar): permanently hides the Back/answer in both views, no
+        // reveal mechanic — a plain browse-the-fronts mode, independent of Hide answers.
+        document.addEventListener('DOMContentLoaded', function() {
+            document.body.classList.toggle('front-only', localStorage.getItem('csv-front-only') === '1');
+        });
+
+        function toggleFrontOnly() {
+            var on = localStorage.getItem('csv-front-only') !== '1';
+            try { localStorage.setItem('csv-front-only', on ? '1' : '0'); } catch (e) {}
+            document.body.classList.toggle('front-only', on);
+            var btn = document.getElementById('btnFrontOnly');
+            if (btn) { btn.classList.toggle('active', on); btn.textContent = on ? 'Front only ✓' : 'Front only'; }
+            showToast(on ? 'Showing fronts only' : 'Showing fronts and backs');
+        }
+
         function toggleKnownRow(r) {
             if (knownRows[r]) delete knownRows[r]; else knownRows[r] = true;
             saveKnownRows();
@@ -1534,6 +1572,27 @@
             if (el) { el.classList.add('kb-focus'); el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
         }
 
+        // Speak Front / Speak Back click modes, and Enter/Space/'/': speak the whole row's Front
+        // or Back regardless of which specific field was clicked/focused — Back joins every
+        // column after Front with a space. Both read from originalData, not the DOM, so they
+        // speak correctly even when Front only has the Back hidden (display:none doesn't stop
+        // JS reading it). "item" is the row's container (.csv-card or <tr>).
+        function speakFrontOfRow(item, row) {
+            var text = (originalData[row] || {})[0];
+            if (!text) return;
+            var frontEl = item.querySelector('[data-col="0"]') || item;
+            speakField(text, frontEl);
+        }
+
+        function speakBackOfRow(item, row) {
+            var data = originalData[row] || {};
+            var cols = Object.keys(data).map(Number).filter(function(c) { return c !== 0; }).sort(function(a, b) { return a - b; });
+            var text = cols.map(function(c) { return data[c]; }).filter(Boolean).join(' ');
+            if (!text) return;
+            var backEl = item.querySelector('[data-col]:not([data-col="0"])') || item;
+            speakField(text, backEl);
+        }
+
         document.addEventListener('keydown', function(e) {
             var t = e.target;
             if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
@@ -1561,7 +1620,13 @@
                 kbFocus(rows[i]);
             } else if ((e.key === 'Enter' || e.key === '/' || e.key === ' ') && i >= 0) {
                 e.preventDefault();
-                toggleKnownRow(parseInt(rows[i]));
+                if (clickMode === 'speakBack') {
+                    speakBackOfRow(items[i], rows[i]);
+                } else if (clickMode === 'speakFront') {
+                    speakFrontOfRow(items[i], rows[i]);
+                } else {
+                    toggleKnownRow(parseInt(rows[i]));
+                }
                 kbFocus(rows[i]);  // keep the highlight after the marks re-render
             } else if (e.key === 'ArrowRight' && document.body.classList.contains('cards-hide')
                        && items[0].classList.contains('csv-card')) {
