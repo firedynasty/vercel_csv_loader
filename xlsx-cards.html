@@ -1,0 +1,673 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tack Cards</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&display=swap">
+<style>
+/* Layout: sticky toolbar over one column of cards; each card is a row of the sheet. */
+:root {
+  --bg: #f7f6f3;        /* warm paper, a touch off pure white */
+  --surface: #ffffff;
+  --fg: #1b1d1a;
+  --muted: #6c7268;     /* neutral biased toward the olive accent */
+  --line: #dcdcd4;
+  --accent: #6b7f3a;    /* olive: the "to study" side */
+  --tack: #b4690e;      /* amber: tacked / known */
+  --tack-soft: rgba(180, 105, 14, 0.10);
+  --accent-soft: rgba(107, 127, 58, 0.12);
+  --card-size: 19px;    /* set by the A- / A+ sizer */
+  --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --sans: "Source Sans 3", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15171a; --surface: #1d2024; --fg: #e8e9e4; --muted: #949b90;
+    --line: #2f343a; --accent: #a3bb63; --tack: #e0a040; --tack-soft: rgba(224, 160, 64, 0.12);
+    --accent-soft: rgba(163, 187, 99, 0.14);
+    --accent-soft: rgba(163, 187, 99, 0.14);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15171a; --surface: #1d2024; --fg: #e8e9e4; --muted: #949b90;
+  --line: #2f343a; --accent: #a3bb63; --tack: #e0a040; --tack-soft: rgba(224, 160, 64, 0.12);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--sans);
+  font-size: 15px; line-height: 1.5; -webkit-text-size-adjust: 100%;
+}
+.wrap {
+  max-width: 820px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 56px;
+}
+
+/* ── header + toolbar ─────────────────────────────────────────── */
+header { padding-block: 28px 16px; }
+h1 { font-family: var(--serif); font-weight: 600; font-size: 26px; margin: 0 0 4px; letter-spacing: -0.01em; }
+.sub { color: var(--muted); font-size: 14px; margin: 0; max-width: 62ch; }
+
+.bar {
+  position: sticky; top: 0; z-index: 5; background: var(--bg);
+  border-bottom: 1px solid var(--line); padding-block: 10px;
+  display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center;
+}
+.bar.floating { box-shadow: 0 6px 16px -14px rgba(0,0,0,.5); }
+button, label.btn, select {
+  font-family: var(--sans); font-size: 13px; color: var(--fg);
+  background: var(--surface); border: 1px solid var(--line); border-radius: 7px;
+  padding: 6px 11px; cursor: pointer;
+}
+button:hover:not(:disabled), label.btn:hover { border-color: var(--muted); }
+button:disabled { opacity: .45; cursor: default; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+:root[data-theme="dark"] button.primary, :root:not([data-theme="light"]) button.primary { color: #15171a; }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) button.primary { color: #fff; } }
+button.on { background: var(--tack-soft); border-color: var(--tack); color: var(--tack); font-weight: 600; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.bar-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.sizer, .seg {
+  display: inline-flex; align-items: stretch; border: 1px solid var(--line);
+  border-radius: 7px; background: var(--surface); overflow: hidden;
+}
+.sizer button, .seg button { border: 0; border-radius: 0; background: transparent; padding: 6px 11px; }
+.sizer button:hover:not(:disabled) { background: var(--tack-soft); color: var(--tack); }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button:hover:not(.on) { background: var(--accent-soft); }
+.seg button.on { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+body:not(.studying) #speak { display: none; }
+.sizer .val {
+  display: flex; align-items: center; justify-content: center;
+  border-left: 1px solid var(--line); border-right: 1px solid var(--line);
+  padding: 0 8px; min-width: 46px; font-size: 12px; color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.count {
+  font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.count b { color: var(--fg); font-weight: 600; }
+.count .t { color: var(--tack); font-weight: 600; }
+input[type=file] { display: none; }
+
+/* ── drop zone / empty state ──────────────────────────────────── */
+.drop {
+  margin-top: 28px; border: 1.5px dashed var(--line); border-radius: 12px;
+  padding: 44px 20px; text-align: center; color: var(--muted); background: var(--surface);
+}
+.drop.hot { border-color: var(--accent); color: var(--fg); }
+.drop h2 { font-family: var(--serif); font-weight: 600; font-size: 19px; color: var(--fg); margin: 0 0 6px; }
+.drop p { margin: 0 auto; max-width: 46ch; font-size: 14px; }
+.drop .cta { margin-top: 18px; }
+
+/* ── cards ────────────────────────────────────────────────────── */
+.cards { display: flex; flex-direction: column; gap: 10px; padding-top: 16px; }
+.card {
+  position: relative; background: var(--surface); border: 1px solid var(--line);
+  border-radius: 10px; padding: 13px 15px 14px; cursor: pointer;
+  transition: border-color .12s, background .12s, opacity .18s, transform .18s;
+}
+.card:hover { border-color: var(--accent); }
+.card.tacked { border-color: var(--tack); box-shadow: inset 3px 0 0 var(--tack); background: var(--tack-soft); }
+.card.leaving { opacity: 0; transform: translateY(-4px); pointer-events: none; }
+.card .num {
+  font-size: 11px; color: var(--muted); letter-spacing: .06em; text-transform: uppercase;
+  font-variant-numeric: tabular-nums; display: flex; gap: 8px; align-items: baseline;
+  margin-bottom: 7px;
+}
+.card.tacked .num .flag { color: var(--tack); font-weight: 700; letter-spacing: .04em; }
+.card .term { font-family: var(--serif); font-size: var(--card-size); font-weight: 600; line-height: 1.3; }
+.card .ans { margin-top: 5px; color: var(--muted); font-size: calc(var(--card-size) * 0.76); line-height: 1.45; }
+.card .ans + .ans { margin-top: 3px; }
+
+/* Study mode: the term alone until the card is opened. */
+body.studying .card .ans { display: none; }
+body.studying .card.open .ans { display: block; }
+.card .hint { display: none; font-size: 11.5px; font-style: italic; color: var(--muted); margin-top: 7px; }
+body.studying .card:not(.open) .hint { display: block; }
+.card.speaking { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+.card.speaking.tacked { box-shadow: inset 3px 0 0 var(--accent); }
+.num .grow { flex: 1 1 auto; }
+.card .tackbtn {
+  display: none; font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase;
+  padding: 2px 8px; border-radius: 5px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--muted); cursor: pointer; font-family: var(--sans);
+}
+body.studying .card .tackbtn { display: inline-block; }
+.card .tackbtn:hover { border-color: var(--tack); color: var(--tack); background: var(--tack-soft); }
+
+.note { padding-top: 22px; color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); margin-top: 26px; }
+.note code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+.warn { color: var(--tack); }
+.done { text-align: center; padding: 48px 16px; color: var(--muted); }
+.done b { display: block; font-family: var(--serif); font-size: 20px; color: var(--fg); margin-bottom: 6px; font-weight: 600; }
+
+/* ── toast ────────────────────────────────────────────────────── */
+#toast {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(18px + env(safe-area-inset-bottom, 0px)); z-index: 20;
+  background: var(--fg); color: var(--bg); border-radius: 9px;
+  padding: 9px 11px 9px 14px; font-size: 13px; display: flex; gap: 12px; align-items: center;
+  box-shadow: 0 10px 28px -12px rgba(0,0,0,.6); max-width: calc(100vw - 32px);
+}
+#toast span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#toast button { background: transparent; border-color: transparent; color: var(--bg); font-weight: 600; text-decoration: underline; padding: 2px 4px; }
+#toast button:hover { border-color: transparent; }
+[hidden] { display: none !important; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Tack Cards</h1>
+    <p class="sub">Open a spreadsheet — .xlsx or .csv — read it as cards, and tack the rows you already know. A tack writes your
+    mark into column&nbsp;A of the sheet itself, so you can save the file back out and pick up where you left off.</p>
+  </header>
+
+  <div class="bar" id="bar">
+    <label class="btn" for="file">Open file</label>
+    <input type="file" id="file" accept=".xlsx,.csv">
+    <select id="sheet" hidden aria-label="Sheet"></select>
+    <span class="seg" role="group" aria-label="What a click does">
+      <button id="modeMark" class="on" aria-pressed="true" title="Click a card to tack it">Mark</button>
+      <button id="modeStudy" aria-pressed="false" title="Click a card to reveal the answer and hear it">Study</button>
+    </span>
+    <button id="speak" class="on" aria-pressed="true" title="Read the card aloud when it opens — slow, faster, slow, faster">Speak on</button>
+    <button id="hideTacked" class="on" aria-pressed="true">Hiding tacked</button>
+    <button id="hideBare" class="on" aria-pressed="true" title="Skip rows with nothing after the term — section letters, headings">Skipping headings</button>
+    <span class="sizer">
+      <button id="smaller" title="Smaller card text" aria-label="Smaller card text">A&minus;</button>
+      <span class="val" id="sizeVal" aria-live="polite">19px</span>
+      <button id="bigger" title="Bigger card text" aria-label="Bigger card text">A+</button>
+    </span>
+    <span class="bar-right">
+      <span class="count" id="count"></span>
+      <button id="save" class="primary" disabled>Save</button>
+    </span>
+  </div>
+
+  <div class="drop" id="drop">
+    <h2>Drop a spreadsheet here</h2>
+    <p>An .xlsx or .csv file. Column A holds your mark (<code>x</code>, <code>✓</code>, anything short).
+    Column B is the term, and every later non-empty column stacks underneath it as the answer.</p>
+    <div class="cta"><label class="btn" for="file">Choose a file</label></div>
+  </div>
+
+  <div class="cards" id="cards"></div>
+  <div class="note" id="note" hidden></div>
+</div>
+
+<div id="toast" hidden><span id="toastText"></span><button id="undo">Undo</button></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  var MARK_RE = /^[xX✓✔√*•·+#oOyY]{1,2}$/;
+  var HEADER_WORDS = ["term", "definition", "front", "back", "question", "answer", "word", "words",
+    "meaning", "concept", "note", "notes", "english", "chinese", "pinyin", "vocab", "vocabulary",
+    "translation", "description", "known", "mark"];
+
+  var wb = null, ws = null, aoa = [], range = null;
+  var sheetName = "", fileName = "", fileFormat = "xlsx", markCol = -1, markSymbol = "x", headerRows = 0;
+  var dirty = false, lastToggle = null, toastTimer = null;
+
+  var MODE_KEY = "tackcards-mode", mode = "mark";
+  var RATES = [1.0, 1.4, 1.0, 1.4];          // Suggestopedia: slow, faster, slow, faster
+  var speakOn = true, stopSpeech = null;
+  var SIZE_KEY = "tackcards-size", SIZE_MIN = 14, SIZE_MAX = 44, SIZE_STEP = 2, size = 19;
+
+  var $ = function (id) { return document.getElementById(id); };
+  var cardsEl = $("cards"), dropEl = $("drop"), noteEl = $("note"), countEl = $("count");
+  var hideTacked = true, hideBare = true;
+
+  function txt(v) { return v === null || v === undefined ? "" : String(v); }
+  function esc(s) {
+    return txt(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  // ── reading ────────────────────────────────────────────────────────────────
+  function openFile(file) {
+    if (!file) return;
+    var ext = /\.(xlsx|csv)$/i.exec(file.name);
+    if (!ext) { note("This prototype reads .xlsx and .csv files only.", true); return; }
+    fileFormat = ext[1].toLowerCase();
+    fileName = file.name;
+    var r = new FileReader();
+    r.onload = function (e) {
+      try {
+        if (fileFormat === "csv") {
+          // raw keeps every field as the text that was in the file, so nothing is retyped on save.
+          // The separator (comma, semicolon, tab) is detected, so a tab-separated export reads fine.
+          wb = XLSX.read(String(e.target.result).replace(/^\ufeff/, ""), { type: "string", raw: true });
+        } else {
+          wb = XLSX.read(new Uint8Array(e.target.result), {
+            type: "array", cellStyles: true, cellNF: true, cellDates: true
+          });
+        }
+      } catch (err) { note("Could not read that file: " + err.message, true); return; }
+      var sel = $("sheet");
+      sel.innerHTML = wb.SheetNames.map(function (n) {
+        return '<option value="' + esc(n) + '">' + esc(n) + "</option>";
+      }).join("");
+      sel.hidden = wb.SheetNames.length < 2;
+      loadSheet(wb.SheetNames[0]);
+    };
+    if (fileFormat === "csv") r.readAsText(file); else r.readAsArrayBuffer(file);
+  }
+
+  function loadSheet(name) {
+    sheetName = name;
+    ws = wb.Sheets[name];
+    range = XLSX.utils.decode_range(ws["!ref"] || "A1");
+    aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: "", blankrows: true });
+    markCol = detectMarkCol();
+    markSymbol = firstMark() || "x";
+    headerRows = detectHeader() ? 1 : 0;
+    dirty = false;
+    dropEl.hidden = true;
+    render();
+  }
+
+  // Column A is the mark column when every value in it is a short mark and some other
+  // column carries the real content.
+  function detectMarkCol() {
+    var filled = [], hasRest = false, i, j, v;
+    for (i = 0; i < aoa.length; i++) {
+      var row = aoa[i] || [];
+      v = txt(row[0]).trim();
+      if (v) filled.push(v);
+      for (j = 1; j < row.length; j++) if (txt(row[j]).trim()) { hasRest = true; break; }
+    }
+    if (!hasRest || !filled.length) return -1;
+    for (i = 0; i < filled.length; i++) if (!MARK_RE.test(filled[i])) return -1;
+    return 0;
+  }
+
+  function firstMark() {
+    if (markCol < 0) return "";
+    for (var i = 0; i < aoa.length; i++) {
+      var v = txt((aoa[i] || [])[markCol]).trim();
+      if (v) return v;
+    }
+    return "";
+  }
+
+  function detectHeader() {
+    var first = aoa[0] || [];
+    for (var j = 0; j < first.length; j++) {
+      if (j === markCol) continue;
+      var v = txt(first[j]).trim().toLowerCase();
+      if (v && HEADER_WORDS.indexOf(v) !== -1) return true;
+    }
+    return false;
+  }
+
+  // ── marks ──────────────────────────────────────────────────────────────────
+  function isMarked(i) { return markCol >= 0 && txt((aoa[i] || [])[markCol]).trim() !== ""; }
+
+  function setMark(i, on) {
+    if (markCol < 0) return;
+    if (!aoa[i]) aoa[i] = [];
+    while (aoa[i].length <= markCol) aoa[i].push("");
+    aoa[i][markCol] = on ? markSymbol : "";
+    var addr = XLSX.utils.encode_cell({ c: range.s.c + markCol, r: range.s.r + i });
+    if (on) ws[addr] = { t: "s", v: markSymbol };
+    else if (ws[addr]) delete ws[addr];
+    dirty = true;
+  }
+
+  // ── rendering ──────────────────────────────────────────────────────────────
+  // One card per sheet row: the row's columns stacked vertically with no labels — the first
+  // content column (the term) on top, every later non-empty column right below it. The mark
+  // column never shows as a field; it only decides whether the card counts as tacked.
+  function visibleRows() {
+    var out = [], i, j;
+    for (i = headerRows; i < aoa.length; i++) {
+      var row = aoa[i] || [], parts = [];
+      for (j = 0; j < row.length; j++) {
+        if (j === markCol) continue;
+        var v = txt(row[j]).trim();
+        if (v) parts.push(v);
+      }
+      if (!parts.length) continue;                 // blank row
+      if (hideBare && parts.length < 2) continue;  // section letter, heading, lone sentence
+      out.push({ i: i, parts: parts });
+    }
+    return out;
+  }
+
+  function render() {
+    if (!wb) {                       // nothing opened yet: the drop zone is the whole page
+      cardsEl.innerHTML = "";
+      countEl.innerHTML = "";
+      $("save").disabled = true;
+      $("save").textContent = "Save";
+      noteEl.hidden = true;
+      return;
+    }
+    var rows = visibleRows();
+    var tacked = rows.filter(function (r) { return isMarked(r.i); });
+    var shown = hideTacked ? rows.filter(function (r) { return !isMarked(r.i); }) : rows;
+
+    countEl.innerHTML = rows.length
+      ? '<b>' + (rows.length - tacked.length) + "</b> to study · <span class='t'>" + tacked.length +
+        " tacked</span> · " + rows.length + " rows"
+      : "";
+    $("save").disabled = !wb || markCol < 0;
+    $("save").textContent = wb ? "Save ." + fileFormat : "Save";
+
+    if (!rows.length) {
+      cardsEl.innerHTML = '<div class="done"><b>Nothing to show</b>' +
+        (wb ? "This sheet has no rows with a term in it." : "") + "</div>";
+    } else if (!shown.length) {
+      cardsEl.innerHTML = '<div class="done"><b>All ' + rows.length + " tacked</b>" +
+        'Press "Hiding tacked" to go back through them, or save the file.</div>';
+    } else {
+      var n = 0;
+      cardsEl.innerHTML = shown.map(function (r) {
+        n++;
+        var on = isMarked(r.i);
+        var body = '<div class="term">' + esc(r.parts[0]) + "</div>";
+        for (var k = 1; k < r.parts.length; k++) body += '<div class="ans">' + esc(r.parts[k]) + "</div>";
+        if (r.parts.length > 1) body += '<div class="hint">Click to reveal and hear it</div>';
+        return '<div class="card' + (on ? " tacked" : "") + '" data-row="' + r.i +
+          '" tabindex="0" role="button" aria-pressed="' + on + '">' +
+          '<div class="num"><span>#' + n + "</span>" +
+          (on ? '<span class="flag">✓ tacked</span>' : "") +
+          '<span class="grow"></span>' +
+          '<button class="tackbtn" data-tack="' + r.i + '">' + (on ? "untack" : "tack") + "</button>" +
+          "</div>" + body + "</div>";
+      }).join("");
+    }
+    renderNote(rows.length);
+  }
+
+  function renderNote(total) {
+    if (!wb) { noteEl.hidden = true; return; }
+    var bits = [];
+    bits.push("<strong>" + esc(fileName) + "</strong>" +
+      (fileFormat === "csv" ? "" : " · sheet <strong>" + esc(sheetName) + "</strong>") +
+      " · " + total + " card" + (total === 1 ? "" : "s") +
+      (headerRows ? " (first row read as a header)" : ""));
+    if (markCol < 0) {
+      bits.push('<span class="warn">No mark column found.</span> Column A has real content in it, so tacking ' +
+        "is off — this prototype marks rows only when column A is empty or already holds short marks like " +
+        "<code>x</code>. Put your x's in column A, with the term in column B.");
+    } else {
+      if (mode === "study") {
+        bits.push("<strong>Study mode.</strong> Click a card to reveal everything after the term and hear the " +
+          "whole card read four times — slow, faster, slow, faster. Click it again to close it and stop. " +
+          "The <em>tack</em> button still marks a row without leaving study mode.");
+      } else {
+        bits.push("<strong>Mark mode.</strong> Click a card (or focus it and press Enter) to tack it. Your mark " +
+          "<code>" + esc(markSymbol) + "</code> is written into column A of the sheet.");
+      }
+      if (fileFormat === "csv") {
+        bits.push('<span class="warn">Saving rewrites the file.</span> Rows, columns and your marks are kept; ' +
+          "quoting and the separator come back out as plain comma-separated CSV. Keep your original file.");
+      } else {
+        bits.push('<span class="warn">Saving rewrites the whole workbook.</span> Values, sheets and formulas ' +
+          "survive; cell colors, fonts and column widths do not — that's the SheetJS community build this " +
+          "prototype uses. Keep your original file.");
+      }
+    }
+    noteEl.innerHTML = bits.map(function (b) { return "<p>" + b + "</p>"; }).join("");
+    noteEl.hidden = false;
+  }
+
+  function note(msg, bad) {
+    noteEl.innerHTML = "<p" + (bad ? ' class="warn"' : "") + ">" + esc(msg) + "</p>";
+    noteEl.hidden = false;
+  }
+
+  // ── toggling ───────────────────────────────────────────────────────────────
+  function toggle(i, el) {
+    if (markCol < 0) return;
+    hush();
+    var on = !isMarked(i);
+    setMark(i, on);
+    var term = (visibleRowTerm(i) || "this row");
+    lastToggle = { i: i, on: on };
+    if (on && hideTacked && el) {
+      el.classList.add("leaving");
+      setTimeout(render, 180);
+    } else {
+      render();
+    }
+    toast((on ? "Tacked " : "Untacked ") + term);
+  }
+
+  function visibleRowTerm(i) {
+    var row = aoa[i] || [];
+    for (var j = 0; j < row.length; j++) {
+      if (j === markCol) continue;
+      var v = txt(row[j]).trim();
+      if (v) return v;
+    }
+    return "";
+  }
+
+  function toast(msg) {
+    $("toastText").textContent = msg;
+    $("toast").hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { $("toast").hidden = true; }, 4000);
+  }
+
+  // ── saving ─────────────────────────────────────────────────────────────────
+  function save() {
+    if (!wb) return;
+    // writeFile picks the format from the extension, so a .csv in stays a .csv out.
+    var out = fileName.replace(/\.(xlsx|csv)$/i, "") + "-marked." + fileFormat;
+    try {
+      XLSX.writeFile(wb, out);
+      dirty = false;
+      toast("Saved " + out);
+    } catch (err) {
+      note("Could not save: " + err.message, true);
+    }
+  }
+
+  // ── speech: the Suggestopedia pass from learn-google.html ──────────────────
+  function hasCJK(s) { return /[\u3400-\u9fbf\u3040-\u30ff\uac00-\ud7af]/.test(s); }
+
+  function pickVoice(lang) {
+    var vs = ("speechSynthesis" in window) ? speechSynthesis.getVoices() : [];
+    if (!vs.length) return null;
+    var find = function (f) { return vs.filter(f)[0] || null; };
+    return find(function (v) { return v.lang === lang && v.name.indexOf("Google") !== -1; })
+      || find(function (v) { return v.lang === lang && (v.name.indexOf("Enhanced") !== -1 || v.name.indexOf("Premium") !== -1); })
+      || find(function (v) { return v.lang === lang; })
+      || find(function (v) { return v.lang.split("-")[0] === lang.split("-")[0]; });
+  }
+
+  function hush() {
+    if (stopSpeech) stopSpeech();
+    stopSpeech = null;
+    if ("speechSynthesis" in window) speechSynthesis.cancel();
+  }
+
+  // The whole card, read four times over: slow, faster, slow, faster.
+  function speakCard(parts, cardEl) {
+    if (!speakOn) return;
+    if (!("speechSynthesis" in window)) { note("This browser has no speech synthesis, so Speak does nothing.", true); return; }
+    hush();
+    var text = parts.join(". ");
+    var lang = hasCJK(text) ? "zh-CN" : "en-US";
+    var voice = pickVoice(lang);
+    var slow = lang.indexOf("zh") === 0 ? 0.8 : 1;
+    var cancelled = false, step = 0;
+    stopSpeech = function () { cancelled = true; cardEl.classList.remove("speaking"); };
+    cardEl.classList.add("speaking");
+    (function next() {
+      if (cancelled || step >= RATES.length) {
+        cardEl.classList.remove("speaking");
+        if (!cancelled) stopSpeech = null;
+        return;
+      }
+      var u = new SpeechSynthesisUtterance(text);
+      u.rate = RATES[step] * slow;
+      u.lang = lang;
+      if (voice) u.voice = voice;
+      u.onend = function () { step++; setTimeout(next, 350); };
+      u.onerror = function () { cardEl.classList.remove("speaking"); stopSpeech = null; };
+      speechSynthesis.speak(u);
+    })();
+  }
+
+  // ── mode ───────────────────────────────────────────────────────────────────
+  function setMode(m) {
+    mode = m;
+    hush();
+    document.body.classList.toggle("studying", mode === "study");
+    [["modeMark", "mark"], ["modeStudy", "study"]].forEach(function (pair) {
+      var b = $(pair[0]);
+      b.classList.toggle("on", mode === pair[1]);
+      b.setAttribute("aria-pressed", String(mode === pair[1]));
+    });
+    try { localStorage.setItem(MODE_KEY, mode); } catch (e) { /* private window */ }
+    render();
+  }
+
+  function openCard(card) {
+    var i = parseInt(card.dataset.row, 10);
+    if (card.classList.contains("open")) { card.classList.remove("open"); hush(); return; }
+    var open = cardsEl.querySelector(".card.open");
+    if (open) open.classList.remove("open");
+    card.classList.add("open");
+    var parts = partsFor(i);
+    if (parts.length > 1) speakCard(parts, card);
+  }
+
+  function partsFor(i) {
+    var row = aoa[i] || [], parts = [];
+    for (var j = 0; j < row.length; j++) {
+      if (j === markCol) continue;
+      var v = txt(row[j]).trim();
+      if (v) parts.push(v);
+    }
+    return parts;
+  }
+
+  // ── card text size ─────────────────────────────────────────────────────────
+  function applySize() {
+    document.documentElement.style.setProperty("--card-size", size + "px");
+    $("sizeVal").textContent = size + "px";
+    $("smaller").disabled = size <= SIZE_MIN;
+    $("bigger").disabled = size >= SIZE_MAX;
+    try { localStorage.setItem(SIZE_KEY, String(size)); } catch (e) { /* private window */ }
+  }
+
+  function bump(by) {
+    size = Math.max(SIZE_MIN, Math.min(SIZE_MAX, size + by));
+    applySize();
+  }
+
+  try {
+    var saved = parseInt(localStorage.getItem(SIZE_KEY), 10);
+    if (saved >= SIZE_MIN && saved <= SIZE_MAX) size = saved;
+  } catch (e) { /* private window */ }
+
+  // ── wiring ─────────────────────────────────────────────────────────────────
+  $("smaller").addEventListener("click", function () { bump(-SIZE_STEP); });
+  $("bigger").addEventListener("click", function () { bump(SIZE_STEP); });
+  $("file").addEventListener("change", function (e) { openFile(e.target.files[0]); e.target.value = ""; });
+  $("sheet").addEventListener("change", function (e) { loadSheet(e.target.value); });
+  $("save").addEventListener("click", save);
+
+  $("hideTacked").addEventListener("click", function () {
+    hideTacked = !hideTacked;
+    this.classList.toggle("on", hideTacked);
+    this.setAttribute("aria-pressed", String(hideTacked));
+    this.textContent = hideTacked ? "Hiding tacked" : "Showing all";
+    render();
+  });
+
+  $("hideBare").addEventListener("click", function () {
+    hideBare = !hideBare;
+    this.classList.toggle("on", hideBare);
+    this.setAttribute("aria-pressed", String(hideBare));
+    this.textContent = hideBare ? "Skipping headings" : "Showing headings";
+    render();
+  });
+
+  $("undo").addEventListener("click", function () {
+    if (!lastToggle) return;
+    setMark(lastToggle.i, !lastToggle.on);
+    lastToggle = null;
+    $("toast").hidden = true;
+    render();
+  });
+
+  cardsEl.addEventListener("click", function (e) {
+    var tackHit = e.target.closest(".tackbtn");
+    var card = e.target.closest(".card");
+    if (!card) return;
+    if (tackHit) { toggle(parseInt(tackHit.dataset.tack, 10), card); return; }
+    if (mode === "study") openCard(card); else toggle(parseInt(card.dataset.row, 10), card);
+  });
+
+  cardsEl.addEventListener("keydown", function (e) {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    var card = e.target.closest(".card");
+    if (!card) return;
+    e.preventDefault();
+    if (mode === "study") openCard(card); else toggle(parseInt(card.dataset.row, 10), card);
+  });
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") hush();
+  });
+
+  $("modeMark").addEventListener("click", function () { setMode("mark"); });
+  $("modeStudy").addEventListener("click", function () { setMode("study"); });
+
+  $("speak").addEventListener("click", function () {
+    speakOn = !speakOn;
+    this.classList.toggle("on", speakOn);
+    this.setAttribute("aria-pressed", String(speakOn));
+    this.textContent = speakOn ? "Speak on" : "Speak off";
+    if (!speakOn) hush();
+  });
+
+  ["dragenter", "dragover"].forEach(function (t) {
+    document.addEventListener(t, function (e) { e.preventDefault(); dropEl.classList.add("hot"); });
+  });
+  ["dragleave", "drop"].forEach(function (t) {
+    document.addEventListener(t, function (e) { e.preventDefault(); dropEl.classList.remove("hot"); });
+  });
+  document.addEventListener("drop", function (e) {
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) openFile(e.dataTransfer.files[0]);
+  });
+
+  window.addEventListener("scroll", function () {
+    $("bar").classList.toggle("floating", window.scrollY > 4);
+  }, { passive: true });
+
+  applySize();
+  try {
+    var savedMode = localStorage.getItem(MODE_KEY);
+    if (savedMode === "study" || savedMode === "mark") mode = savedMode;
+  } catch (e) { /* private window */ }
+  setMode(mode);
+  if ("speechSynthesis" in window) speechSynthesis.getVoices();   // nudge the voice list to load
+
+  window.addEventListener("beforeunload", function (e) {
+    if (dirty) { e.preventDefault(); e.returnValue = ""; }
+  });
+})();
+</script>
+</body>
+</html>
