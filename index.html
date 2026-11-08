@@ -6,7 +6,6 @@
     <title>CSV / Excel Loader</title>
     <link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.0.0-beta/css/bootstrap.min.css'>
     <link rel='stylesheet' href='https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap4.min.css'>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         * {
@@ -246,29 +245,6 @@
             color: rgba(0, 0, 0, 0.6);
         }
 
-        .recent-dropdown-wrapper { position: relative; }
-        .recent-dropdown {
-            position: absolute; top: 100%; left: 0;
-            min-width: 220px; max-width: 320px;
-            max-height: 220px; overflow-y: auto;
-            background: #1e2a3a; border: 1px solid rgba(255,255,255,0.15);
-            border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,.4);
-            z-index: 200; margin-top: 4px;
-        }
-        body.light-mode .recent-dropdown {
-            background: #fff; border-color: #ddd; box-shadow: 0 4px 12px rgba(0,0,0,.1);
-        }
-        .recent-dropdown-item {
-            display: block; width: 100%; padding: 10px 14px; min-height: 40px;
-            text-align: left; background: none; border: none;
-            border-bottom: 1px solid rgba(255,255,255,0.07);
-            font-size: 13px; color: #e2e8f0; cursor: pointer;
-            white-space: normal; overflow: visible; word-break: break-word;
-        }
-        .recent-dropdown-item:last-child { border-bottom: none; }
-        .recent-dropdown-item:hover { background: rgba(255,255,255,0.07); }
-        body.light-mode .recent-dropdown-item { color: #1a1a1a; border-color: #f0f0f0; }
-        body.light-mode .recent-dropdown-item:hover { background: #f5f5f5; }
 
         /* Table container */
         #table-container {
@@ -718,20 +694,399 @@
             border: none; border-radius: 8px; padding: 10px 24px; font-size: 14px; cursor: pointer;
         }
 
-        /* Anki Deck Picker Modal — same look as the Dropbox CSV browser (.dcm-* classes) */
-        #ankiDeckOverlay {
-            display: none; position: fixed; inset: 0;
-            background: rgba(0,0,0,0.72); z-index: 9999;
-            align-items: center; justify-content: center;
+        .recent-dropdown-wrapper { position: relative; }
+        .recent-dropdown {
+            position: absolute; top: 100%; left: 0;
+            min-width: 220px; max-width: 320px;
+            max-height: 220px; overflow-y: auto;
+            background: #1e2a3a; border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,.4);
+            z-index: 200; margin-top: 4px;
         }
-        #ankiDeckOverlay.open { display: flex; }
-        #ankiDeckModal {
-            background: #1a1a2e; border: 1px solid rgba(255,255,255,0.15);
-            border-radius: 12px; width: min(420px, 95vw);
-            max-height: 80vh; display: flex; flex-direction: column; overflow: hidden;
+        body.light-mode .recent-dropdown {
+            background: #fff; border-color: #ddd; box-shadow: 0 4px 12px rgba(0,0,0,.1);
         }
-        body.light-mode #ankiDeckModal { background: #fff; border-color: #ddd; }
-        #ankiDeckList { overflow-y: auto; flex: 1; padding: 4px 0; }
+        .recent-dropdown-item {
+            display: block; width: 100%; padding: 10px 14px; min-height: 40px;
+            text-align: left; background: none; border: none;
+            border-bottom: 1px solid rgba(255,255,255,0.07);
+            font-size: 13px; color: #e2e8f0; cursor: pointer;
+            white-space: normal; overflow: visible; word-break: break-word;
+        }
+        .recent-dropdown-item:last-child { border-bottom: none; }
+        .recent-dropdown-item:hover { background: rgba(255,255,255,0.07); }
+        body.light-mode .recent-dropdown-item { color: #1a1a1a; border-color: #f0f0f0; }
+        body.light-mode .recent-dropdown-item:hover { background: #f5f5f5; }
+
+        /* Table container */
+        #table-container {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        #table-container p {
+            color: #888;
+            text-align: center;
+            padding: 40px;
+        }
+
+        /* Cell interactions */
+        td, th {
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        td:hover {
+            background-color: rgba(59, 130, 246, 0.3) !important;
+        }
+
+        td.copied {
+            background-color: rgba(16, 185, 129, 0.4) !important;
+        }
+
+        /* Truncate long cell content */
+        table.dataTable td {
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* Toast notification */
+        .toast-notification {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: #10B981;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 1000;
+            font-weight: 500;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        #printOverlay { display: none; position: fixed; inset: 0; z-index: 10000; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; }
+        #printOverlay.open { display: flex; }
+        #printModal { background: #1e293b; color: #e2e8f0; border: 1px solid #334155; border-radius: 12px; padding: 18px 20px; width: min(460px, 92vw); display: flex; flex-direction: column; gap: 10px; font-size: 13px; }
+        #printModal h3 { margin: 0 0 4px; font-size: 15px; }
+        #printModal p { margin: 4px 0 0; font-size: 12px; opacity: .75; line-height: 1.45; }
+        .print-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+        body.light-mode #printModal { background: #fff; color: #1a1a1a; border-color: #ddd; }
+        #numBufBox {
+            position: fixed; right: 16px; bottom: 16px; z-index: 9999; display: none;
+            background: #3B82F6; color: #fff; font-size: 28px; font-weight: 700;
+            padding: 8px 18px; border-radius: 10px; box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+        }
+        #numBufBox.show { display: block; }
+        .toast-notification.show {
+            opacity: 1;
+        }
+
+        /* Theme Toggle Button */
+        .theme-toggle-btn {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            padding: 8px 16px;
+            background: #ff9800;
+            color: #000;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .theme-toggle-btn:hover {
+            background: #f57c00;
+        }
+
+        /* ============ LIGHT MODE STYLES ============ */
+        body.light-mode {
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+            color: #333;
+        }
+
+        body.light-mode .table {
+            color: #333;
+        }
+
+        body.light-mode .table-striped tbody tr:nth-of-type(odd) {
+            background-color: rgba(0, 0, 0, 0.03);
+        }
+
+        body.light-mode .table-striped tbody tr:nth-of-type(even) {
+            background-color: rgba(0, 0, 0, 0.01);
+        }
+
+        body.light-mode .table-bordered {
+            border: 1px solid rgba(0, 0, 0, 0.15);
+        }
+
+        body.light-mode .table-bordered td,
+        body.light-mode .table-bordered th {
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        body.light-mode .table thead th {
+            background-color: rgba(59, 130, 246, 0.15);
+            border-color: rgba(0, 0, 0, 0.1);
+            color: #1e40af;
+        }
+
+        body.light-mode .dataTables_wrapper {
+            color: #333;
+        }
+
+        body.light-mode .dataTables_wrapper .dataTables_length,
+        body.light-mode .dataTables_wrapper .dataTables_filter,
+        body.light-mode .dataTables_wrapper .dataTables_info,
+        body.light-mode .dataTables_wrapper .dataTables_paginate {
+            color: #555;
+        }
+
+        body.light-mode .dataTables_wrapper .dataTables_length select,
+        body.light-mode .dataTables_wrapper .dataTables_filter input {
+            background-color: #fff;
+            border: 1px solid #ccc;
+            color: #333;
+        }
+
+        body.light-mode .dataTables_wrapper .dataTables_paginate .paginate_button {
+            color: #333 !important;
+            background: #fff;
+            border: 1px solid #ccc;
+        }
+
+        body.light-mode .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+            background: rgba(59, 130, 246, 0.2) !important;
+            border-color: #3B82F6 !important;
+            color: #333 !important;
+        }
+
+        body.light-mode .dataTables_wrapper .dataTables_paginate .paginate_button.current {
+            background: #3B82F6 !important;
+            border-color: #3B82F6 !important;
+            color: #fff !important;
+        }
+
+        body.light-mode h1 {
+            color: #1e40af;
+        }
+
+        body.light-mode .lead {
+            color: #666;
+        }
+
+        body.light-mode .file-input-wrapper input[type="file"] {
+            background: #fff;
+            border: 2px dashed #ccc;
+            color: #333;
+        }
+
+        body.light-mode .file-input-wrapper input[type="file"]:hover {
+            border-color: #3B82F6;
+            background: rgba(59, 130, 246, 0.05);
+        }
+
+        body.light-mode #table-container {
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid #ddd;
+        }
+
+        body.light-mode #table-container p {
+            color: #666;
+        }
+
+        body.light-mode td:hover {
+            background-color: rgba(59, 130, 246, 0.15) !important;
+        }
+
+        body.light-mode td.copied {
+            background-color: rgba(16, 185, 129, 0.2) !important;
+        }
+
+        body.light-mode .theme-toggle-btn {
+            background: #333;
+            color: #fff;
+        }
+
+        body.light-mode .theme-toggle-btn:hover {
+            background: #555;
+        }
+
+        /* Sheet Picker Modal */
+        .sheet-picker-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .sheet-picker-overlay.open {
+            display: flex;
+        }
+
+        .sheet-picker-modal {
+            background: #1a1a2e;
+            border: 1px solid #333;
+            border-radius: 12px;
+            width: 360px;
+            max-height: 80vh;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        }
+
+        .sheet-picker-header {
+            padding: 15px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: #a8d8ea;
+        }
+
+        .sheet-picker-header button {
+            background: transparent;
+            border: none;
+            color: #888;
+            cursor: pointer;
+            font-size: 18px;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        .sheet-picker-header button:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .sheet-picker-list {
+            padding: 10px;
+            overflow-y: auto;
+            max-height: calc(80vh - 60px);
+        }
+
+        .sheet-picker-item {
+            padding: 12px 16px;
+            cursor: pointer;
+            border-radius: 6px;
+            margin-bottom: 4px;
+            color: #fff;
+            transition: background-color 0.15s;
+        }
+
+        .sheet-picker-item:hover {
+            background: rgba(59, 130, 246, 0.3);
+        }
+
+        .sheet-picker-item:active {
+            background: #3B82F6;
+        }
+
+        /* Light mode sheet picker */
+        body.light-mode .sheet-picker-modal {
+            background: #fff;
+            border-color: #ddd;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+        }
+
+        body.light-mode .sheet-picker-header {
+            border-bottom-color: #ddd;
+            color: #1e40af;
+        }
+
+        body.light-mode .sheet-picker-header button {
+            color: #999;
+        }
+
+        body.light-mode .sheet-picker-header button:hover {
+            color: #333;
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        body.light-mode .sheet-picker-item {
+            color: #333;
+        }
+
+        body.light-mode .sheet-picker-item:hover {
+            background: rgba(59, 130, 246, 0.1);
+        }
+
+        body.light-mode .sheet-picker-item:active {
+            background: #3B82F6;
+            color: #fff;
+        }
+
+        /* ── VIEW TOGGLE ── */
+        .view-toggle-bar {
+            display: flex; gap: 6px; margin-bottom: 14px;
+        }
+        .view-toggle-bar button {
+            padding: 6px 16px; border-radius: 6px; font-size: 12px; font-weight: 700;
+            border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08);
+            color: rgba(255,255,255,0.7); cursor: pointer; transition: all 0.15s;
+        }
+        .view-toggle-bar button.active { background: #3B82F6; border-color: #3B82F6; color: #fff; }
+        #cardFontControls { margin-left: auto; }
+        #cardFontControls button { margin-left: 6px; padding: 6px 12px; }
+        .view-toggle-bar button:hover:not(.active) { background: rgba(255,255,255,0.15); }
+        body.light-mode .view-toggle-bar button {
+            color: #555; background: rgba(0,0,0,0.05); border-color: rgba(0,0,0,0.15);
+        }
+        body.light-mode .view-toggle-bar button.active { background: #3B82F6; color: #fff; border-color: #3B82F6; }
+        body.light-mode .view-toggle-bar button:hover:not(.active) { background: rgba(0,0,0,0.08); }
+
+        /* ── CSV CARDS ── */
+        #cards-view-wrap { display: none; }
+        .csv-card {
+            background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px; padding: 14px 16px; margin-bottom: 8px;
+            transition: background 0.15s;
+        }
+        .csv-card:hover { background: rgba(59,130,246,0.18); }
+        .csv-card .card-num {
+            font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.3);
+            margin-bottom: 8px;
+        }
+        .csv-card .card-field {
+            margin-bottom: 6px; cursor: pointer;
+            padding: 4px 6px; border-radius: 4px; transition: background 0.1s;
+        }
+        .csv-card .card-field:hover { background: rgba(59,130,246,0.25); }
+        .csv-card .card-field:last-child { margin-bottom: 0; }
+        .csv-card .card-label {
+            font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.35);
+            text-transform: uppercase; letter-spacing: 0.6px;
+        }
+        .csv-card .card-value { font-size: var(--card-font-size, 14px); color: #e2e8f0; line-height: 1.4; }
+        body.light-mode .csv-card { background: white; border-color: #e0e0e0; }
+        body.light-mode .csv-card:hover { background: #f0f4ff; }
+        body.light-mode .csv-card .card-num { color: #bbb; }
+        body.light-mode .csv-card .card-field:hover { background: rgba(59,130,246,0.08); }
+        body.light-mode .csv-card .card-label { color: #999; }
+        body.light-mode .csv-card .card-value { color: #1a1a1a; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .main-content {
+                padding: 15px;
+            }
+        }
 
         /* ── STICKY NAVBAR ── */
         .sticky-nav {
@@ -796,8 +1151,8 @@
         /* "Front only" toggle (view-toggle-bar) — permanently hides the Back, no reveal (unlike
            Hide answers, which is a temporary reveal-on-click quiz mode in Cards view only) */
         body.front-only .csv-card .card-answer,
-        body.front-only #csv-table td[data-col]:not([data-col="0"]),
-        body.front-only #csv-table thead th:not(:first-child) { display: none; }
+        body.front-only #csv-table td[data-col]:not([data-col="1"]),
+        body.front-only #csv-table thead th:not(:nth-child(2)) { display: none; }
 
         /* Keyboard focus: ↑/↓ moves it, Enter or / toggles Known */
         .csv-card.kb-focus { outline: 2px solid #3B82F6; outline-offset: 2px; }
@@ -827,12 +1182,14 @@
         #keysModal td:first-child { white-space: nowrap; padding-right: 14px; }
         #keysModal kbd {
             background: #334155; border: 1px solid #475569; border-radius: 4px;
-            padding: 1px 6px; font-size: 12px; font-family: inherit;
+            padding: 1px 7px; font-size: 12px; font-family: inherit;
+            color: #f8fafc;            /* explicit: don't inherit, short labels went invisible */
+            display: inline-block; min-width: 1em; text-align: center; white-space: nowrap;
         }
         #keysModal .keys-close { background: none; border: none; color: #94a3b8; font-size: 20px; cursor: pointer; }
         body.light-mode #keysModal { background: white; color: #1a1a1a; }
         body.light-mode #keysModal td { border-top-color: #e5e7eb; }
-        body.light-mode #keysModal kbd { background: #f1f5f9; border-color: #cbd5e1; }
+        body.light-mode #keysModal kbd { background: #f1f5f9; border-color: #cbd5e1; color: #0f172a; }
 
         #knownOverlay {
             display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.72);
@@ -868,7 +1225,7 @@
 <body>
     <!-- Sticky navbar: cell-click destination + TTS controls -->
     <div class="sticky-nav" id="stickyNav">
-        <!-- Google Sheets -->
+        <!-- CSV sources: Google Sheets, a local file, or Dropbox -->
         <div class="gsheets-wrapper">
             <button class="gsheets-btn" id="gsheetsAuthBtn" onclick="gdriveSignIn()">Sign in with Google</button>
             <input type="text" id="gsheetsSearchInput" placeholder="Spreadsheet name..." />
@@ -879,6 +1236,7 @@
             </div>
             <button class="gsheets-btn" id="dropboxBtn" onclick="handleDropboxClick()" oncontextmenu="return handleDropboxRightClick(event)" title="Sign in to Dropbox to browse and load CSV files. Right-click to sign out.">DB: Sign In</button>
             <button class="gsheets-btn" onclick="window.open('/items-for-sale', '_blank')" title="Open Items for Sale page">Items for Sale</button>
+            <button class="gsheets-btn" id="pushXBtn" onclick="pushXToSheet()" disabled title="Write this table into a &quot;&lt;tab&gt;_x&quot; tab of the Google Sheet you loaded, x column and all, so you can study it from any browser. The tab you loaded is never touched.">⬆ Push x’s to Sheet</button>
             <div class="gsheets-status" id="gsheetsStatus"></div>
         </div>
         <div class="nav-row">
@@ -886,9 +1244,9 @@
             <div class="click-mode-toggle">
                 <button data-mode="clipboard" onclick="setClickMode('clipboard')" title="Clicking a cell copies it to your local clipboard">Clipboard</button>
                 <button data-mode="dropbox" onclick="setClickMode('dropbox')" title="Clicking a cell sends it to Dropbox /blob_vercel_replacement/blob_clipboard_content.txt (same file as vercel_clipboard_manager; requires Dropbox sign-in)">Dropbox</button>
-                <button data-mode="speakFront" onclick="setClickMode('speakFront')" title="Click a card/row, or Enter/Space/'/', to read its Front aloud">Speak Front</button>
-                <button data-mode="speakBack" onclick="setClickMode('speakBack')" title="Click a card/row, or Enter/Space/'/', to read its Back aloud">Speak Back</button>
-                <button data-mode="known" onclick="setClickMode('known')" title="Clicking a card (or table row) marks it Known; click again to unmark">Known</button>
+                <button data-mode="speakFront" onclick="setClickMode('speakFront')" title="Click a card/row to read its Front aloud. On the keyboard the keys are fixed: , reads the name, . reads the back, Space reads the whole card">Speak Front</button>
+                <button data-mode="speakBack" onclick="setClickMode('speakBack')" title="Click a card/row to read its Back aloud. On the keyboard: . reads the back, Space reads the whole card">Speak Back</button>
+                <button data-mode="known" onclick="setClickMode('known')" title="Clicking a card (or table row) marks it Known; click again to unmark. On the keyboard Enter or / always marks Known, whatever this is set to">Known</button>
             </div>
             <div class="sep"></div>
             <span class="nav-label">TTS</span>
@@ -903,9 +1261,7 @@
             <button class="nav-stop-btn" onclick="stopSpeaking()" title="Stop speaking">&#9632; Stop</button>
             <div class="sep"></div>
             <button class="nav-stop-btn" onclick="openKnownCards()" title="Cards marked Known / still learning, to paste into Claude">&#128203; Known cards</button>
-            <input id="unknownDeck" type="text" placeholder="Anki deck, e.g. google_it::module_1" title="Anki deck, e.g. google_it::module_1. Save unknown adds it as a deck column (anki_manager sorts the cards into it); Sync Anki reads and updates this deck" oninput="try{localStorage.setItem('csv-unknown-deck',this.value)}catch(e){}" style="width:230px;padding:4px 8px;font-size:12px;border-radius:6px;border:1px solid #888;background:transparent;color:inherit">
-            <button class="nav-stop-btn" onclick="loadFromAnki()" title="Load the deck in the box straight from Anki — no CSV needed (Anki must be open on this computer). Empty box opens a deck picker instead. Cards Anki shows as not due for 21+ days load already marked Known">&#11015; Load from Anki</button>
-            <button class="nav-stop-btn" onclick="syncAnki()" title="Two-way sync with the deck in the box (Anki must be open on this computer). Cards marked Known here get their due date pushed out 21 days; cards Anki shows as not due for 21+ days become Known here; marks whose card is due again are cleared">&#128260; Sync Anki</button>
+            <button class="nav-stop-btn" onclick="downloadMarkedSheet()" title="Download the sheet with the x column as it stands, to filter in Excel">&#11015; Download x'd sheet</button>
             <button class="nav-stop-btn" onclick="openPrintDialog()" title="Print the loaded cards as double-sided flashcards (8 per Letter sheet, flip on long edge)">&#128424; Print cards</button>
             <button class="nav-stop-btn" onclick="saveUnknownCards()" title="Download every card not marked Known as a CSV (unknown_cards.csv)">&#128190; Save unknown</button>
             <button class="nav-stop-btn" id="btnHideMode" onclick="toggleHideMode()" title="Cards view: hide the answer (everything after the first field). ← toggles this; → or right-click reveals a card for 10 seconds">Hide answers</button>
@@ -962,19 +1318,38 @@
     <div id="keysOverlay" onclick="if(event.target===this)closeKeysInfo()">
         <div id="keysModal">
             <h3>Keyboard shortcuts <button class="keys-close" onclick="closeKeysInfo()">&times;</button></h3>
+            <p style="margin:0 0 10px;font-size:12px;opacity:.8">These keys always do the same thing. The
+            <strong>Click &rarr;</strong> buttons only change what a <em>mouse click</em> does, so you can hear a card
+            and mark it without switching modes.</p>
             <table>
-                <tr><td><kbd>&darr;</kbd> <kbd>&uarr;</kbd></td><td>Move to the next / previous card (rows in Table view)</td></tr>
-                <tr><td><kbd>Enter</kbd> <kbd>/</kbd> or <kbd>Space</kbd></td><td>Mark the highlighted card Known (press again to unmark) — or, in Speak Front / Speak Back click mode, read that side aloud instead (even if Front only is hiding the Back)</td></tr>
-                <tr><td><kbd>0</kbd>-<kbd>9</kbd></td><td>Type a card number (e.g. 15) — Enter or a short pause jumps to card #15 and runs the current Click &rarr; mode on it (Known toggle, or speak Front/Back)</td></tr>
-                <tr><td><kbd>&larr;</kbd></td><td>Turn Hide answers on / off (switches to Cards view)</td></tr>
-                <tr><td><kbd>&rarr;</kbd></td><td>Hide answers on: show the highlighted card's answer for 10 seconds</td></tr>
-                <tr><td>Load from Anki</td><td>Loads the deck in the box straight from Anki (no CSV needed) as Front/Back cards; cards not due for 21+ days in Anki load already marked Known. Leave the box empty to pick a deck from a list instead</td></tr>
-                <tr><td>Sync Anki</td><td>With the deck in the box: Known here &rarr; due date +21 days in Anki; not due for 21+ days in Anki &rarr; Known here; card due again &rarr; mark cleared</td></tr>
-                <tr><td>Left click</td><td>Highlight a card (and do the current Click &rarr; mode)</td></tr>
-                <tr><td>Right click</td><td>Hide answers on: show that card's answer for 10 seconds</td></tr>
+                <tr><th colspan="2" style="text-align:left;padding-top:6px;font-size:11px;letter-spacing:.06em;opacity:.6;text-transform:uppercase">Move</th></tr>
+                <tr><td><kbd>Down</kbd> <kbd>Up</kbd></td><td>Next / previous card (rows in Table view)</td></tr>
+                <tr><td><kbd>Number keys</kbd></td><td>Type a card number (e.g. type 1 then 5) &mdash; <kbd>Enter</kbd> or a short pause jumps to card #15. It <em>only</em> jumps, so nothing is marked by accident</td></tr>
+
+                <tr><th colspan="2" style="text-align:left;padding-top:10px;font-size:11px;letter-spacing:.06em;opacity:.6;text-transform:uppercase">Listen</th></tr>
+                <tr><td><kbd>Space</kbd></td><td><strong>The whole card</strong> &mdash; name, then everything after it, read straight through</td></tr>
+                <tr><td><kbd>Comma</kbd></td><td>Just the <strong>name</strong> (column 2)</td></tr>
+                <tr><td><kbd>Period</kbd></td><td>Just the <strong>back</strong> (column 3 onward)</td></tr>
+                <tr><td colspan="2" style="font-size:12px;opacity:.7">All three read from the file, so they work even while <em>Front only</em> or <em>Hide answers</em> is hiding the back.</td></tr>
+
+                <tr><th colspan="2" style="text-align:left;padding-top:10px;font-size:11px;letter-spacing:.06em;opacity:.6;text-transform:uppercase">Mark</th></tr>
+                <tr><td><kbd>Enter</kbd> <kbd>Slash</kbd></td><td>Mark the highlighted card <strong>Known</strong> &mdash; writes <code>x</code> into column 1. Press again to unmark</td></tr>
+
+                <tr><th colspan="2" style="text-align:left;padding-top:10px;font-size:11px;letter-spacing:.06em;opacity:.6;text-transform:uppercase">Answers</th></tr>
+                <tr><td><kbd>Left</kbd></td><td>Turn <em>Hide answers</em> on / off (switches to Cards view)</td></tr>
+                <tr><td><kbd>Right</kbd></td><td>With Hide answers on: reveal the highlighted card for 10 seconds</td></tr>
+
+                <tr><th colspan="2" style="text-align:left;padding-top:10px;font-size:11px;letter-spacing:.06em;opacity:.6;text-transform:uppercase">Mouse</th></tr>
+                <tr><td>Left click</td><td>Highlight a card, and do whatever <strong>Click &rarr;</strong> is set to</td></tr>
+                <tr><td>Right click</td><td>With Hide answers on: reveal that card for 10 seconds</td></tr>
                 <tr><td><kbd>Esc</kbd></td><td>Close this box</td></tr>
             </table>
-            <p style="margin:12px 0 0;font-size:12px;opacity:.75">&#128190; Save unknown downloads every card not marked Known as a CSV.</p>
+            <p style="margin:12px 0 0;font-size:12px;opacity:.75">
+            A one-handed run: <kbd>Space</kbd> to hear it, then <kbd>Enter</kbd> if you knew it, then <kbd>Down</kbd> for the next.<br>
+            Sheet shape: <strong>col 1</strong> = the <code>x</code> mark &middot; <strong>col 2</strong> = name &middot; <strong>col 3+</strong> = back.
+            Marks live in column 1, so they come and go with the file &mdash; keep them with
+            <strong>&#11015; Download x&rsquo;s sheet</strong>, <strong>&#128190; Save unknown</strong>, or
+            <strong>&#11014; Push x&rsquo;s to Sheet</strong>.</p>
         </div>
     </div>
 
@@ -1018,18 +1393,6 @@
             <div id="dbxCsvStatus"></div>
             <div id="dbxCsvBreadcrumb"></div>
             <div id="dbxCsvList"></div>
-        </div>
-    </div>
-
-    <!-- Anki Deck Picker Modal (shown when Load from Anki is clicked with the deck box empty) -->
-    <div id="ankiDeckOverlay" onclick="if(event.target===this)closeAnkiDeckModal()">
-        <div id="ankiDeckModal">
-            <div class="dcm-header">
-                <h3>🗂️ Pick an Anki deck</h3>
-                <button class="dcm-close" onclick="closeAnkiDeckModal()">&times;</button>
-            </div>
-            <div id="ankiDeckStatus" style="padding:8px 16px;font-size:12px;color:#888"></div>
-            <div id="ankiDeckList"></div>
         </div>
     </div>
 
@@ -1169,6 +1532,7 @@
     </script>
 
     <script src='https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js'></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src='https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js'></script>
     <script src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'></script>
     <script src='https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js'></script>
@@ -1273,12 +1637,80 @@
             return false;
         }
 
+        // ── MARK COLUMN: every file gets col 1 as the filter column ─────────────────────
+        // Flashcards and Citi statements alike: col 1 holds the mark, col 2 is the name, col 3+
+        // is the rest. A file that already has a mark column is left alone, so this is safe to
+        // run on every load.
+        //
+        // "Already has one" = no data row puts anything in col 1 except a mark token. That makes
+        // the insert idempotent: after inserting, col 1 is all blank, which still reads as a mark
+        // column, so download -> reopen -> download never stacks up blank columns. Digits are not
+        // mark tokens (an id column of 1s is content), matching rowMarked().
+        var MARK_RE = /^(x|\u2713|\u2714)$/i;
+
+        function hasMarkColumn(data) {
+            var sawDataRow = false;
+            for (var i = 1; i < data.length; i++) {
+                var row = data[i] || [];
+                if (!row.some(function(c) { return String(c == null ? '' : c).trim(); })) continue;
+                sawDataRow = true;
+                var v = String(row[0] == null ? '' : row[0]).trim();
+                if (v && !MARK_RE.test(v)) return false;
+            }
+            if (sawDataRow) return true;
+            // Header-only file: go by the header cell instead.
+            var h = String((data[0] || [])[0] == null ? '' : data[0][0]).trim().toLowerCase();
+            return h === '' || h === 'x' || h === 'mark' || h === 'known';
+        }
+
+        // ── HEADER ROW: synthesize one when the file has none ───────────────────────────
+        // The table and cards views always treat row 0 as the header, so a headerless file lost
+        // its first card to it — and ensureMarkColumn, which writes "x" into row 0's mark cell,
+        // marked that card known. A header is recognized by a known label in the NAME column or
+        // later; the mark column is skipped, or a headerless "x,A," row would match on its "x".
+        var HEADER_WORDS = ['name','term','word','vocab','vocabulary','front','back','question','answer',
+                            'definition','meaning','english','chinese','pinyin','spanish','korean','hebrew',
+                            'translation','pronunciation','language','note','notes','category','item',
+                            'date','description','amount','price','debit','credit','balance','transaction','memo'];
+
+        // Two labels, not one: words like "note", "word", "date", "item" and "balance" are
+        // perfectly good card fronts, so a single match would eat a real card as the header.
+        // Every realistic header has at least two labels ("name,definition", "Date,Description,
+        // Amount"). Guessing headerless instead costs one visible junk card; guessing header
+        // silently loses a real one.
+        function looksLikeHeaderRow(row, from) {
+            var hits = 0;
+            (row || []).slice(from).forEach(function(c) {
+                if (HEADER_WORDS.indexOf(String(c == null ? '' : c).trim().toLowerCase()) >= 0) hits++;
+            });
+            return hits >= 2;
+        }
+
+        function ensureHeaderRow(data) {
+            if (!data || !data.length) return data;
+            // If a mark column is already present its col 1 is a mark, not a label, so skip it.
+            var from = hasMarkColumn(data) ? 1 : 0;
+            if (looksLikeHeaderRow(data[0], from)) return data;
+            var width = data.reduce(function(m, r) { return Math.max(m, (r || []).length); }, 0);
+            var head = [];
+            if (from) head.push('x');
+            head.push('name');
+            for (var i = head.length, n = 0; i < width; i++) { n++; head.push(n === 1 ? 'back' : 'back ' + n); }
+            return [head].concat(data);
+        }
+
+        function ensureMarkColumn(data) {
+            if (!data || !data.length || hasMarkColumn(data)) return data;
+            return data.map(function(row, i) { return [i === 0 ? 'x' : ''].concat(row || []); });
+        }
+
         function renderTableFromData(data) {
             if (!data || data.length === 0) {
                 document.getElementById('table-container').innerHTML = '<p>No data to display</p>';
                 return;
             }
 
+            data = ensureMarkColumn(ensureHeaderRow(data));
             originalData = {};
             data.forEach(function(row, rowIndex) {
                 originalData[rowIndex] = {};
@@ -1337,6 +1769,7 @@
                 html += '<div class="card-num">#' + rowIndex + '</div>';
                 var shown = 0;
                 row.forEach(function(cell, colIndex) {
+                    if (colIndex === MARK_COL) return;   // the x is a filter, not a field
                     var text = cell !== null && cell !== undefined ? String(cell) : '';
                     if (!text.trim()) return; // skip empty fields
                     if (shown++ === 1) html += '<div class="card-hint">→ or right-click to reveal</div>';
@@ -1449,41 +1882,68 @@
         // ============ KNOWN CARDS (ported from vercel_flashcards/anki_manager.html) ============
         // In Known click mode, clicking a card (or table row) marks that row Known; click again to
         // unmark. Unmarked rows count as "Still learning". Marks are kept per file content in
-        // localStorage. Rows read as "first column → other columns", like Anki's "Front → Back".
+        // localStorage. Rows read as "col 2 → col 3+", i.e. Anki's "Front → Back" with the
+        // mark column in front of them.
         var knownRows = {};       // data row index -> true
         var knownMode = 'all';
 
-        // Marks are saved by each card's front text (not row number or file content), so editing
-        // or reordering the CSV keeps them. One shared set across files.
-        var KNOWN_FRONTS_KEY = 'csv-known-fronts';
+        // Retired: 'csv-known-fronts' was one global set of marks keyed by front text, shared by
+        // every file. It is cleared once here so stale marks from it can't reappear.
+        try { localStorage.removeItem('csv-known-fronts'); } catch (e) {}
+
+        // ── SHEET SHAPE (the source of truth) ──────────────────────────────────────
+        //   col 0 = filter mark ("x" = known / good to go)   col 1 = name (the front, and the
+        //   identity used to match Anki)   col 2..n = the back, stacked.
+        // The mark column is a PROJECTION, never merged state: Pull x from Anki blanks it and
+        // re-stamps it from a fresh query, so running the pull twice gives the same sheet.
+        var MARK_COL = 0, NAME_COL = 1;
+        var MARK = 'x';
 
         function knownFront(r) {
-            return String(originalData[r] && originalData[r][0] || '').replace(/\s+/g, ' ').trim().toLowerCase();
+            return String(originalData[r] && originalData[r][NAME_COL] || '').replace(/\s+/g, ' ').trim().toLowerCase();
         }
 
-        function readKnownFronts() {
-            try { return JSON.parse(localStorage.getItem(KNOWN_FRONTS_KEY)) || {}; } catch (e) { return {}; }
+        // Is col 0 marked for this row? Any non-empty value that isn't a number counts, so "x",
+        // "X" and "✓" all read as marked.
+        function rowMarked(r) {
+            var v = String(originalData[r] && originalData[r][MARK_COL] || '').trim();
+            return !!v && !/^[0-9.]+$/.test(v);
         }
 
+        function setRowMark(r, on) {
+            if (originalData[r]) originalData[r][MARK_COL] = on ? MARK : '';
+        }
+
+        // A row with a name but nothing in col 2..n is a section heading ("x | A | | "), not a
+        // card. It never became an Anki note, so the pull leaves its mark column alone instead
+        // of clearing a marker you put there yourself.
+        function rowHasBack(r) {
+            var row = originalData[r] || {};
+            return Object.keys(row).some(function(c) {
+                return Number(c) > NAME_COL && String(row[c] || '').trim();
+            });
+        }
+
+        // The sheet's own mark column wins: an x in col 0 means known even if this browser has
+        // never seen the file. localStorage click-marks are unioned in on top.
+        // Marks come from the file's own mark column and nowhere else, so opening a different
+        // sheet starts clean and deleting the x column in the sheet actually clears the marks.
+        // (It used to union in a single global localStorage set keyed by front text, shared
+        // across every file: switching sheets carried marks over, and a column you deleted came
+        // straight back on the next load.)
         function loadKnownRows(data) {
-            var saved = readKnownFronts();
             knownRows = {};
             Object.keys(originalData).forEach(function(r) {
-                var f = knownFront(r);
-                if (f && saved[f]) knownRows[r] = true;
+                if (r === '0') return;              // header
+                if (rowMarked(r)) knownRows[r] = true;
             });
             applyKnownMarks();
         }
 
-        // Update the shared set for the fronts in the current file only
+        // Marks live in the table's mark column, so saving a mark means re-saving the table.
+        // persistTableData keeps it in sessionStorage, which is what a reload restores from.
         function saveKnownRows() {
-            var saved = readKnownFronts();
-            Object.keys(originalData).forEach(function(r) {
-                var f = knownFront(r);
-                if (!f) return;
-                if (knownRows[r]) { if (!saved[f]) saved[f] = true; } else delete saved[f];
-            });
-            try { localStorage.setItem(KNOWN_FRONTS_KEY, JSON.stringify(saved)); } catch (e) {}
+            try { persistTableData(currentRows()); } catch (e) {}
         }
 
         function applyKnownMarks() {
@@ -1494,7 +1954,7 @@
 
         // "Show unknown" (view-toggle-bar, next to Table/Cards): hides anything already marked
         // Known via body.hide-known-cards + CSS, same approach as the Hide-answers toggle. Stays
-        // correct automatically as Known marks change (clicking, Sync Anki, Load from Anki) since
+        // correct automatically as Known marks change (clicking, loading a file, Pull/Push) since
         // it only hides by the .known class those already apply — no separate re-filter needed.
         document.addEventListener('DOMContentLoaded', function() {
             document.body.classList.toggle('hide-known-cards', localStorage.getItem('csv-hide-known') === '1');
@@ -1527,6 +1987,7 @@
 
         function toggleKnownRow(r) {
             if (knownRows[r]) delete knownRows[r]; else knownRows[r] = true;
+            setRowMark(r, !!knownRows[r]);   // keep col 0 in step, so Download x'd sheet is right
             saveKnownRows();
             applyKnownMarks();
             var count = Object.keys(knownRows).length;
@@ -1555,9 +2016,15 @@
             showToast(on ? 'Answers hidden — → reveals for 10s' : 'Answers shown');
         }
 
-        // ── KEYBOARD: ↑/↓ move between cards (or table rows), Enter, / or Space toggles Known,
-        //    ← toggles Hide answers, → reveals the focused card's answer for 10 seconds ──
-        // Works in any click mode; ignored while typing in a box or with a popup open.
+        // ── KEYBOARD ──────────────────────────────────────────────────────────────────────
+        //   ↑ ↓   move between cards (rows in Table view)
+        //   Enter / '/'   toggle Known        Space  speak the whole card (name + back)
+        //   ','   speak the name              '.'    speak the back
+        //   ←  Hide answers on/off            →      reveal the focused card for 10s
+        // These are FIXED: they no longer follow the Click → mode, so one hand can run a session
+        // (Space to hear it, Enter to mark it off, ↓ for the next) without switching modes. The
+        // Click → buttons still decide what a mouse click does.
+        // Ignored while typing in a box or with a popup open.
         var kbFocusRow = null;  // data-row of the focused card/row
 
         function kbItems() {
@@ -1581,18 +2048,31 @@
         // speak correctly even when Front only has the Back hidden (display:none doesn't stop
         // JS reading it). "item" is the row's container (.csv-card or <tr>).
         function speakFrontOfRow(item, row) {
-            var text = (originalData[row] || {})[0];
+            var text = (originalData[row] || {})[NAME_COL];
             if (!text) return;
-            var frontEl = item.querySelector('[data-col="0"]') || item;
+            var frontEl = item.querySelector('[data-col="' + NAME_COL + '"]') || item;
             speakField(text, frontEl);
+        }
+
+        // Space reads the WHOLE card: the name and every column after it, one utterance. This is
+        // what the old Speak Back did by accident once the mark column arrived (it skipped only
+        // col 1, so it read the name too) — deliberate now, because hearing the whole card is the
+        // useful thing when studying a language.
+        function speakWholeOfRow(item, row) {
+            var data = originalData[row] || {};
+            var cols = Object.keys(data).map(Number).filter(function(c) { return c >= NAME_COL; }).sort(function(a, b) { return a - b; });
+            var text = cols.map(function(c) { return data[c]; }).filter(Boolean).join(' ');
+            if (!text) return;
+            var el = item.querySelector('[data-col="' + NAME_COL + '"]') || item;
+            speakField(text, el);
         }
 
         function speakBackOfRow(item, row) {
             var data = originalData[row] || {};
-            var cols = Object.keys(data).map(Number).filter(function(c) { return c !== 0; }).sort(function(a, b) { return a - b; });
+            var cols = Object.keys(data).map(Number).filter(function(c) { return c > NAME_COL; }).sort(function(a, b) { return a - b; });
             var text = cols.map(function(c) { return data[c]; }).filter(Boolean).join(' ');
             if (!text) return;
-            var backEl = item.querySelector('[data-col]:not([data-col="0"])') || item;
+            var backEl = item.querySelector('[data-col]:not([data-col="' + MARK_COL + '"]):not([data-col="' + NAME_COL + '"])') || item;
             speakField(text, backEl);
         }
 
@@ -1613,7 +2093,7 @@
                 if (e.key === 'Escape') closeKeysInfo();
                 return;
             }
-            if (document.querySelector('#knownOverlay.open, #dbxCsvOverlay.open, #printOverlay.open, #ankiDeckOverlay.open')) return;
+            if (document.querySelector('#knownOverlay.open, #dbxCsvOverlay.open, #printOverlay.open')) return;
             if (e.key === 'ArrowLeft') { e.preventDefault(); toggleHideMode(); return; }
             var items = kbItems();
             if (!items.length) return;
@@ -1630,10 +2110,19 @@
                 if (i < 0) i = e.key === 'ArrowDown' ? 0 : rows.length - 1;
                 else i = Math.max(0, Math.min(rows.length - 1, i + (e.key === 'ArrowDown' ? 1 : -1)));
                 kbFocus(rows[i]);
-            } else if ((e.key === 'Enter' || e.key === '/' || e.key === ' ') && i >= 0) {
-                e.preventDefault();
-                doClickModeAction(items[i], rows[i]);
-                kbFocus(rows[i]);  // keep the highlight after the marks re-render
+            } else if (e.key === 'Enter' || e.key === '/' || e.key === ' ' || e.key === ',' || e.key === '.') {
+                e.preventDefault();   // Space would scroll the page otherwise
+                if (i < 0) { i = 0; kbFocus(rows[0]); }   // nothing focused yet: act on the first card
+                if (e.key === 'Enter' || e.key === '/') {
+                    toggleKnownRow(parseInt(rows[i]));
+                    kbFocus(rows[i]);  // keep the highlight after the marks re-render
+                } else if (e.key === ' ') {
+                    speakWholeOfRow(items[i], rows[i]);
+                } else if (e.key === ',') {
+                    speakFrontOfRow(items[i], rows[i]);
+                } else {
+                    speakBackOfRow(items[i], rows[i]);
+                }
             } else if (e.key === 'ArrowRight' && document.body.classList.contains('cards-hide')
                        && items[0].classList.contains('csv-card')) {
                 e.preventDefault();
@@ -1678,8 +2167,7 @@
             numClear();
             var row = String(n);  // data-row is 1-indexed in both views now, matching the "#N" label exactly
             if (rows.indexOf(row) >= 0) {
-                var el = kbFocus(row);
-                if (el) doClickModeAction(el, row);
+                kbFocus(row);   // jump only — this also fires on a pause, so it must not mark or speak
             } else {
                 showToast('No card #' + n);
             }
@@ -1696,217 +2184,145 @@
         function openKeysInfo() { document.getElementById('keysOverlay').classList.add('open'); }
         function closeKeysInfo() { document.getElementById('keysOverlay').classList.remove('open'); }
 
-        // ── SAVE UNKNOWN: every row not marked Known, downloaded as a CSV ──
-        var UNKNOWN_ROOT = '/study/unknown_cards';
+
+        // Where the loaded file came from, for naming downloads.
         var loadedDbxPath = null;
         var loadedName = '';
 
-        function unknownCsvTarget() {
-            var p = loadedDbxPath || '';
-            var lower = p.toLowerCase();
-            if (lower.indexOf(UNKNOWN_ROOT + '/') === 0) return p;
-            if (lower.indexOf('/study/anki/') === 0) return UNKNOWN_ROOT + p.slice('/study/anki'.length);
-            var name = (loadedName || 'cards.csv').replace(/[\\/:*?"<>|]/g, '_');
-            if (!/\.csv$/i.test(name)) name = name.replace(/\.[^.]*$/, '') + '.csv';
-            return UNKNOWN_ROOT + '/' + name;
-        }
-
-        function saveUnknownCards() {
-            var keys = Object.keys(originalData);
-            if (!keys.length) { showToast('Load a CSV first'); return; }
-            var rows = keys.filter(function(r) { return !knownRows[r]; }).map(function(r) {
-                var row = originalData[r];
-                return Object.keys(row).map(function(c) { return row[c]; });
-            }).filter(function(row) { return row.some(function(c) { return String(c).trim(); }); });
-            if (!rows.length) { showToast('Every card is marked Known — nothing to save'); return; }
-            // Optional deck: front,back,...,deck with a header (anki_app.py reads the deck column).
-            // A file we saved earlier already has that header and column; strip them first so
-            // saving it back over itself doesn't nest another one.
-            var deck = document.getElementById('unknownDeck').value.trim();
-            var first = rows[0];
-            var hadDeck = first.length > 2 && String(first[first.length - 1]).trim().toLowerCase() === 'deck'
-                && String(first[0]).trim().toLowerCase() === 'front';
-            if (hadDeck) rows = rows.slice(1).map(function(r) { return r.slice(0, -1); });
-            if (!rows.length) { showToast('Every card is marked Known — nothing to save'); return; }
-            if (deck) {
-                var width = rows.reduce(function(m, r) { return Math.max(m, r.length); }, 2);
-                var head = ['front', 'back'];
-                for (var k = 2; k < width; k++) head.push('col' + (k + 1));
-                rows = [head.concat('deck')].concat(rows.map(function(r) {
-                    var padded = r.slice();
-                    while (padded.length < width) padded.push('');
-                    return padded.concat(deck);
-                }));
-            }
-            var csv = Papa.unparse(rows);
-            var path = unknownCsvTarget();
-            var count = rows.length - (deck ? 1 : 0);
-            var label = count + ' unknown card' + (count !== 1 ? 's' : '');
-            var a = document.createElement('a');
-            a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-            a.download = 'unknown_' + path.split('/').pop();
-            document.body.appendChild(a); a.click(); a.remove();
-            setTimeout(function() { URL.revokeObjectURL(a.href); }, 1000);
-            showToast('Downloaded ' + label);
-        }
-
-        // ── SYNC ANKI: two-way, by front text, for the deck in the deck box ──
-        // "Known" in Anki = the card isn't due for SYNC_DAYS days (Anki's own due date brings it
-        // back, so nothing has to run in the background). Needs Anki open on this computer.
-        //   marked here, not known in Anki, never pushed → setDueDate +SYNC_DAYS (and remember p)
-        //   known in Anki, not marked here               → mark it here
-        //   marked here, pushed before, Anki not known   → Anki brought it back: clear the mark
-        var ANKI_URL = 'http://localhost:8765';
-        var SYNC_DAYS = 21;
-
-        function ankiCall(action, params) {
-            return fetch(ANKI_URL, { method: 'POST', body: JSON.stringify({ action: action, version: 6, params: params || {} }) })
-                .then(function(r) { return r.json(); })
-                .then(function(res) { if (res.error) throw new Error(res.error); return res.result; });
-        }
-
-        // Anki search: quote the deck and escape \ " * _ (underscore is a wildcard there)
-        function ankiDeckQuery(deck) { return '"deck:' + deck.replace(/[\\"*_]/g, '\\$&') + '"'; }
-
-        function ankiFront(html) {
-            var text = new DOMParser().parseFromString(html || '', 'text/html').body.textContent || '';
-            return text.replace(/\s+/g, ' ').trim().toLowerCase();
-        }
-
-        // Plain display text for a field (same HTML-stripping as ankiFront, but case/spacing kept
-        // as-is for the table/cards view instead of normalized for front-text matching).
-        function ankiPlainText(html) {
-            var text = new DOMParser().parseFromString(html || '', 'text/html').body.textContent || '';
-            return text.replace(/\n{3,}/g, '\n\n').trim();
-        }
-
-        // ── LOAD FROM ANKI: pull a deck straight from Anki into the table/cards view, no CSV
-        // needed first. Cards Anki already shows as not due for SYNC_DAYS+ days load pre-marked
-        // Known here too, same bucket Sync Anki uses — so "the cards I already know" show up
-        // marked the moment you load, without a separate Sync Anki click. ──
-        // ── ANKI DECK PICKER: Load from Anki with an empty deck box opens this instead of just
-        // complaining — lists every deck (AnkiConnect deckNames), click one to fill the box and
-        // load it immediately. ──
-        function closeAnkiDeckModal() {
-            document.getElementById('ankiDeckOverlay').classList.remove('open');
-        }
-
-        async function openAnkiDeckPicker() {
-            document.getElementById('ankiDeckOverlay').classList.add('open');
-            var status = document.getElementById('ankiDeckStatus'), list = document.getElementById('ankiDeckList');
-            status.textContent = 'Loading decks…';
-            list.innerHTML = '';
-            try {
-                var names = (await ankiCall('deckNames')).sort();
-                status.textContent = names.length + ' deck(s) — click one to load';
-                list.innerHTML = names.map(function(n) {
-                    return '<div class="dcm-item folder" onclick="pickAnkiDeck(\'' + n.replace(/'/g, "\\'") + '\')">'
-                        + '<span class="dcm-icon">🗂️</span><span class="dcm-name">' + escHtml(n) + '</span></div>';
-                }).join('');
-            } catch (err) {
-                status.textContent = err instanceof TypeError ? "Can't reach Anki: open Anki on this computer" : 'Error: ' + err.message;
-            }
-        }
-
-        function pickAnkiDeck(name) {
-            document.getElementById('unknownDeck').value = name;
-            try { localStorage.setItem('csv-unknown-deck', name); } catch (e) {}
-            closeAnkiDeckModal();
-            navigator.clipboard.writeText(name).then(function() {
-                showToast('Copied "' + name + '" (also filled the deck box) — click Load from Anki when ready');
-            }).catch(function() {
-                showToast('Filled the deck box with "' + name + '" — click Load from Anki when ready');
+        // originalData (row -> col -> value) back to a plain array of rows, padded to the widest
+        // row so every line in the CSV has the same number of columns.
+        function currentRows() {
+            var keys = Object.keys(originalData).map(Number).sort(function(a, b) { return a - b; });
+            var width = 0;
+            keys.forEach(function(r) {
+                Object.keys(originalData[r]).forEach(function(c) { width = Math.max(width, Number(c) + 1); });
+            });
+            return keys.map(function(r) {
+                var row = [];
+                for (var c = 0; c < width; c++) row.push(originalData[r][c] || '');
+                return row;
             });
         }
 
-        async function loadFromAnki() {
-            var deck = document.getElementById('unknownDeck').value.trim();
-            if (!deck) { openAnkiDeckPicker(); return; }
-            showToast('Loading "' + deck + '" from Anki…');
+        // ── PUSH X'S TO THE GOOGLE SHEET ────────────────────────────────────────────────
+        // Writes the table into a sibling tab named "<tab>_x", created on the first push and
+        // reused after, so you can open it from any browser (e.g. at the library).
+        //
+        // It never touches the tab it loaded from. That matters because the load path is lossy:
+        // sheet_to_csv turns formulas into their computed value, Papa.parse drops blank rows,
+        // RAW writes make dates and amounts text, and the mark column shifts every column right
+        // — while clear only clears values, so your formatting would stay put over moved data.
+        // The _x tab is generated, so none of that is a loss: it is cleared and rewritten whole
+        // on every push, which also makes pushing twice leave the same tab.
+        var gsheetFileId = null, gsheetFileName = '', gsheetSheetName = null;
+
+        function xTabName(tab) {
+            var name = /_x$/i.test(tab) ? tab : tab + '_x';   // don't make Sheet1_x_x
+            return name.length > 100 ? name.slice(0, 98) + '_x' : name;   // Sheets title limit
+        }
+
+        function refreshPushXBtn() {
+            var btn = document.getElementById('pushXBtn');
+            if (!btn) return;
+            var ready = !!(gdriveAccessToken && gsheetFileId && gsheetSheetName);
+            btn.disabled = !ready;
+            btn.title = ready
+                ? 'Write this table into "' + gsheetFileName + '" \u2192 tab "' + xTabName(gsheetSheetName)
+                  + '" (created if needed). Your "' + gsheetSheetName + '" tab is never touched.'
+                : 'Sign in with Google and load a spreadsheet first \u2014 then this writes the x column back to it';
+        }
+
+        function gsheetRange(tab) { return encodeURIComponent("'" + tab.replace(/'/g, "''") + "'"); }
+
+        async function pushXToSheet() {
+            if (!gdriveAccessToken) { setGsheetsStatus('Sign in with Google first'); return; }
+            if (!gsheetFileId || !gsheetSheetName) { setGsheetsStatus('Load a Google Sheet first (Push writes back to the one you loaded)'); return; }
+            if (!Object.keys(originalData).length) { setGsheetsStatus('Nothing loaded to push'); return; }
+
+            var rows = currentRows();
+            var marked = rows.filter(function(r, i) { return i > 0 && String(r[MARK_COL] || '').trim(); }).length;
+            var target = xTabName(gsheetSheetName);
+            var api = 'https://sheets.googleapis.com/v4/spreadsheets/' + gsheetFileId;
+            var auth = { Authorization: 'Bearer ' + gdriveAccessToken, 'Content-Type': 'application/json' };
+
+            setGsheetsStatus('Pushing ' + rows.length + ' row(s) to "' + target + '"\u2026');
             try {
-                var q = ankiDeckQuery(deck);
-                var allIds = await ankiCall('findCards', { query: q });
-                if (!allIds.length) { showToast('No cards in the Anki deck "' + deck + '" yet'); return; }
-                var info = await ankiCall('cardsInfo', { cards: allIds });
-                var knownIds = await ankiCall('findCards', { query: q + ' prop:due>=' + SYNC_DAYS });
-                var knownInAnki = {};
-                knownIds.forEach(function(id) { knownInAnki[id] = true; });
+                // Does the _x tab exist yet?
+                var meta = await fetch(api + '?fields=sheets(properties(title))', { headers: auth });
+                if (!meta.ok) throw new Error(await gsheetErr(meta));
+                var titles = ((await meta.json()).sheets || []).map(function(sh) { return sh.properties.title; });
+                var created = false;
 
-                var saved = readKnownFronts(), seen = {};
-                var rows = [], marked = 0;
-                info.forEach(function(c) {
-                    var fields = Object.keys(c.fields).map(function(k) { return c.fields[k]; })
-                        .sort(function(a, b) { return a.order - b.order; });
-                    var frontHtml = fields[0] ? fields[0].value : '';
-                    var front = ankiFront(frontHtml);
-                    if (!front || seen[front]) return;  // one row per unique front, like Sync Anki
-                    seen[front] = true;
-                    var back = fields.slice(1).map(function(f) { return ankiPlainText(f.value); })
-                        .filter(Boolean).join('\n');
-                    rows.push([ankiPlainText(frontHtml), back]);
-                    if (knownInAnki[c.cardId] && !saved[front]) { saved[front] = true; marked++; }
+                if (titles.indexOf(target) < 0) {
+                    var add = await fetch(api + ':batchUpdate', {
+                        method: 'POST', headers: auth,
+                        body: JSON.stringify({ requests: [{ addSheet: { properties: { title: target } } }] })
+                    });
+                    if (!add.ok) throw new Error(await gsheetErr(add));
+                    created = true;
+                }
+
+                var range = api + '/values/' + gsheetRange(target);
+                var clr = await fetch(range + ':clear', { method: 'POST', headers: auth });
+                if (!clr.ok) throw new Error(await gsheetErr(clr));
+                var put = await fetch(range + '?valueInputOption=RAW', {
+                    method: 'PUT', headers: auth, body: JSON.stringify({ values: rows })
                 });
-                try { localStorage.setItem(KNOWN_FRONTS_KEY, JSON.stringify(saved)); } catch (e) {}
+                if (!put.ok) throw new Error(await gsheetErr(put));
 
-                renderTableFromData([['Front', 'Back']].concat(rows));
-                loadKnownRows();
-                showToast('Loaded ' + rows.length + ' card(s) from Anki "' + deck + '"'
-                    + (marked ? ' · ' + marked + ' already known' : ''));
+                setGsheetsStatus('Pushed to "' + gsheetFileName + '" \u2192 ' + target + (created ? ' (new tab)' : '')
+                    + ' \u00b7 ' + rows.length + ' rows, ' + marked + " x\u2019d");
+                showToast((created ? 'Created tab "' + target + '" \u2014 ' : 'Updated "' + target + '" \u2014 ')
+                    + marked + " x\u2019d row(s)");
             } catch (err) {
-                showToast(err instanceof TypeError ? "Can't reach Anki: open Anki on this computer" : 'Load from Anki failed: ' + err.message);
+                setGsheetsStatus('Push failed: ' + err.message);
+                showToast('Push failed: ' + err.message);
             }
         }
 
-        async function syncAnki() {
-            var deck = document.getElementById('unknownDeck').value.trim();
-            if (!deck) { showToast('Type the Anki deck in the deck box first'); return; }
+        async function gsheetErr(resp) {
+            try {
+                var j = await resp.json();
+                var m = j && j.error && j.error.message ? j.error.message : '';
+                if (/insufficient|scope|permission/i.test(m)) return m + ' \u2014 sign out and back in to grant write access';
+                return m || ('HTTP ' + resp.status);
+            } catch (e) { return 'HTTP ' + resp.status; }
+        }
+
+        // Download just the rows with no x — the "what's left to learn" slice of the same CSV.
+        // Keeps the sheet's own shape (col 1 mark, col 2 name, col 3+ back); the deck column is
+        // gone, because choosing the deck belongs to anki_manager's import, not here.
+        function saveUnknownCards() {
             if (!Object.keys(originalData).length) { showToast('Load a CSV first'); return; }
-            showToast('Syncing with Anki…');
-            try {
-                var q = ankiDeckQuery(deck);
-                var allIds = await ankiCall('findCards', { query: q });
-                if (!allIds.length) { showToast('No cards in the Anki deck "' + deck + '" yet'); return; }
-                var info = await ankiCall('cardsInfo', { cards: allIds });
-                var knownIds = await ankiCall('findCards', { query: q + ' prop:due>=' + SYNC_DAYS });
-                var knownInAnki = {};
-                knownIds.forEach(function(id) { knownInAnki[id] = true; });
-
-                var byFront = {};  // front text -> { ids: [card ids], allKnown: bool }
-                info.forEach(function(c) {
-                    var fields = Object.keys(c.fields).map(function(k) { return c.fields[k]; })
-                        .sort(function(a, b) { return a.order - b.order; });
-                    var f = ankiFront(fields[0] ? fields[0].value : '');
-                    if (!f) return;
-                    var e = byFront[f] || (byFront[f] = { ids: [], allKnown: true });
-                    e.ids.push(c.cardId);
-                    if (!knownInAnki[c.cardId]) e.allKnown = false;
-                });
-
-                var saved = readKnownFronts(), now = Date.now();
-                var pushIds = [], pushed = 0, pulled = 0, cleared = 0, seen = {};
-                Object.keys(originalData).forEach(function(r) {
-                    var f = knownFront(r);
-                    if (!f || seen[f] || !byFront[f]) return;
-                    seen[f] = true;
-                    var a = byFront[f], mark = saved[f];
-                    if (a.allKnown) {
-                        if (!mark) pulled++;
-                        saved[f] = { p: now };
-                    } else if (mark && mark.p) {
-                        delete saved[f]; cleared++;
-                    } else if (mark) {
-                        a.ids.forEach(function(id) { if (!knownInAnki[id]) pushIds.push(id); });
-                        saved[f] = { p: now }; pushed++;
-                    }
-                });
-                if (pushIds.length) await ankiCall('setDueDate', { cards: pushIds, days: String(SYNC_DAYS) });
-                try { localStorage.setItem(KNOWN_FRONTS_KEY, JSON.stringify(saved)); } catch (e) {}
-                loadKnownRows();
-                showToast('Anki sync: ' + pushed + ' pushed (due +' + SYNC_DAYS + 'd), ' + pulled + ' marked from Anki, ' + cleared + ' cleared');
-            } catch (err) {
-                showToast(err instanceof TypeError ? "Can't reach Anki: open Anki on this computer" : 'Anki sync failed: ' + err.message);
-            }
+            var rows = currentRows().filter(function(row, i) {
+                if (i === 0) return true;                                  // keep the header
+                if (!row.some(function(c) { return String(c).trim(); })) return false;
+                return !String(row[MARK_COL] || '').trim();                // no x = still to learn
+            });
+            if (rows.length <= 1) { showToast('Every card is marked Known — nothing to save'); return; }
+            var name = (loadedName || 'cards.csv').replace(/[\\/:*?"<>|]/g, '_').replace(/\.[^.]*$/, '');
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob([Papa.unparse(rows)], { type: 'text/csv' }));
+            a.download = 'unknown_' + name + '.csv';
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(function() { URL.revokeObjectURL(a.href); }, 1000);
+            showToast('Downloaded ' + (rows.length - 1) + ' card(s) still to learn');
         }
+
+        // Download the sheet with the mark column as it stands — filter on col 1 in Excel.
+        function downloadMarkedSheet() {
+            if (!Object.keys(originalData).length) { showToast('Load a CSV or xlsx first'); return; }
+            var rows = currentRows();
+            var name = (loadedName || 'cards.csv').replace(/[\\/:*?"<>|]/g, '_').replace(/\.[^.]*$/, '');
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob([Papa.unparse(rows)], { type: 'text/csv' }));
+            a.download = name + '_x.csv';
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(function() { URL.revokeObjectURL(a.href); }, 1000);
+            var n = rows.filter(function(r, i) { return i > 0 && String(r[MARK_COL] || '').trim(); }).length;
+            showToast('Downloaded ' + a.download + ' — ' + n + ' row(s) x\'d');
+        }
+
 
         // ── PRINT CARDS: 8 per US Letter sheet (2 x 4), fronts then backs, for duplex flip on LONG edge ──
         // Flipping on the long edge mirrors left/right, so each back row is reversed: the back of
@@ -1922,9 +2338,12 @@
         // [{n: card number as shown (#n), front, back}] in CSV order
         function printCardList(onlyUnknown) {
             return Object.keys(originalData).map(Number).sort(function(a, b) { return a - b; }).map(function(r) {
-                var cells = Object.keys(originalData[r]).map(function(c) { return String(originalData[r][c]).trim(); });
-                if (!cells[0] || (onlyUnknown && knownRows[r])) return null;
-                return { n: r + 1, front: cells[0], back: cells.slice(1).filter(Boolean).join('\n') };
+                if (r === 0) return null;            // header row is not a card
+                if (!rowHasBack(r)) return null;     // section heading, nothing to put on the back
+                var cells = Object.keys(originalData[r]).map(Number).sort(function(a, b) { return a - b; })
+                    .map(function(c) { return String(originalData[r][c]).trim(); });
+                if (!cells[NAME_COL] || (onlyUnknown && knownRows[r])) return null;
+                return { n: r + 1, front: cells[NAME_COL], back: cells.slice(NAME_COL + 1).filter(Boolean).join('\n') };
             }).filter(Boolean);
         }
 
@@ -2049,11 +2468,11 @@
         }
 
         document.addEventListener('DOMContentLoaded', function() {
-            try { document.getElementById('unknownDeck').value = localStorage.getItem('csv-unknown-deck') || ''; } catch (e) {}
         });
 
         function clearKnownRows() {
             knownRows = {};
+            Object.keys(originalData).forEach(function(r) { if (r !== '0') setRowMark(r, false); });
             saveKnownRows();
             applyKnownMarks();
             renderKnownCards();
@@ -2063,10 +2482,14 @@
 
         function knownCardList() {
             return Object.keys(originalData).map(function(r) {
+                if (r === '0' || !rowHasBack(r)) return null;   // header / section heading
                 var row = originalData[r];
-                var cells = Object.keys(row).map(function(c) { return knownOneLine(row[c]); }).filter(Boolean);
-                if (!cells.length) return null;
-                return { front: cells[0], back: cells.slice(1).join(' / '), known: !!knownRows[r] };
+                var cols = Object.keys(row).map(Number).sort(function(a, b) { return a - b; });
+                var front = knownOneLine(row[NAME_COL]);
+                if (!front) return null;
+                var back = cols.filter(function(c) { return c > NAME_COL; })
+                    .map(function(c) { return knownOneLine(row[c]); }).filter(Boolean).join(' / ');
+                return { front: front, back: back, known: !!knownRows[r] };
             }).filter(Boolean);
         }
 
@@ -2464,6 +2887,8 @@
         function pickSheet(sheetName) {
             if (pendingWorkbook) {
                 loadSheet(pendingWorkbook, sheetName);
+                gsheetSheetName = sheetName;   // the tab Push x's writes back to
+                refreshPushXBtn();
                 closeSheetPicker();
             }
         }
@@ -2475,9 +2900,11 @@
             }
         }
 
+
         // ============ GOOGLE SHEETS ============
         const GDRIVE_CLIENT_ID = '1095683227908-7ro25k16mprkf408i3lf583gti8v759b.apps.googleusercontent.com';
-        const GDRIVE_SCOPES = 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/spreadsheets.readonly';
+        // `spreadsheets` (not .readonly) so Push x’s to Sheet can write the table back.
+        const GDRIVE_SCOPES = 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/spreadsheets';
 
         let gdriveAccessToken = null;
         let gdriveTokenClient = null;
@@ -2494,6 +2921,7 @@
             document.getElementById('gsheetsAuthBtn').textContent = 'Sign Out';
             document.getElementById('gsheetsSearchBtn').disabled = false;
             document.getElementById('recentBtn').disabled = false;
+            refreshPushXBtn();
             if (msg) setGsheetsStatus(msg);
         }
 
@@ -2531,7 +2959,6 @@
         }
 
         gdriveRestoreFromStorage();
-        restoreTableFromStorage();
 
         var checkGoogle = setInterval(function() {
             if (window.google && window.google.accounts) {
@@ -2548,6 +2975,7 @@
                 document.getElementById('gsheetsSearchBtn').disabled = true;
                 document.getElementById('recentBtn').disabled = true;
                 closeRecentDropdown();
+                refreshPushXBtn();
                 setGsheetsStatus('Signed out');
                 return;
             }
@@ -2593,11 +3021,16 @@
 
                 originalData = {};
                 currentWorkbook = workbook;
+                gsheetFileId = fileId;          // remembered so the x column can be written back
+                gsheetFileName = fileName;
+                gsheetSheetName = null;
                 document.getElementById('chooseSheetBtn').style.display = 'none';
 
                 var sheetNames = workbook.SheetNames;
                 if (sheetNames.length === 1) {
+                    gsheetSheetName = sheetNames[0];
                     loadSheet(workbook, sheetNames[0]);
+                    refreshPushXBtn();
                 } else {
                     pendingWorkbook = workbook;
                     document.getElementById('chooseSheetBtn').style.display = 'inline-block';
@@ -2644,6 +3077,7 @@
             if (window._dropboxReady) { try { await window._dropboxReady; } catch {} }
             refreshDropboxBtn();
         });
+
 
         // ── Recent Google Sheets Dropdown ────────────────────────────────────
         var _recentDismissListener = null;
