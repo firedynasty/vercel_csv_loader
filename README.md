@@ -46,6 +46,22 @@ ignore the knob; they already act on the whole row.
 unchanged everywhere — col 1 = x, col 2 = name (the front), col 3+ = the back — which
 is what the rest of `loader.html` counts on.
 
+## Downloads
+
+**⬇ Download** writes three slices of the loaded sheet, all of them CSV, all of them the
+same shape — header row kept, col 1 = the `x` mark, col 2 = name, col 3+ = back — so any
+one of them loads straight back into the loader without a column shifting.
+
+| Choice | File | What is in it |
+| --- | --- | --- |
+| Everything | `<name>_x.csv` | Every row, marks as they stand. For filtering on col 1 in Excel. |
+| Only the rows marked x | `<name>_known.csv` | The pile you know. |
+| Only the rows without an x | `<name>_unknown.csv` | The pile still to learn. |
+
+Blank lines are dropped from all three. The mark is read from **column 1 of the file**, not
+from the in-page click state, because col 1 is what a click writes to and what travels with
+the file.
+
 ## Dropbox sign-in
 
 Dropbox checks the redirect URI against the list in its app console, so `dbxRedirectUri()`

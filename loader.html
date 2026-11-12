@@ -1243,6 +1243,16 @@
         body.light-mode .known-btn.primary { color: #fff; border-color: #3B82F6; }
         .csv-card .card-field.speaking { background: rgba(22,163,74,0.25); }
         body.light-mode .csv-card .card-field.speaking { background: #bbf7d0; }
+        /* Download modal: same shell as #printModal. */
+        #downloadOverlay { display: none; position: fixed; inset: 0; z-index: 10000; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; }
+        #downloadOverlay.open { display: flex; }
+        #downloadModal { background: #1e293b; color: #e2e8f0; border: 1px solid #334155; border-radius: 12px; padding: 18px 20px; width: min(460px, 92vw); display: flex; flex-direction: column; gap: 10px; font-size: 13px; }
+        #downloadModal h3 { margin: 0 0 4px; font-size: 15px; }
+        #downloadModal p { margin: 4px 0 0; font-size: 12px; opacity: .75; line-height: 1.45; }
+        body.light-mode #downloadModal { background: #fff; color: #1a1a1a; border-color: #ddd; }
+        .dl-choices { display: flex; flex-direction: column; gap: 6px; }
+        .dl-choices button { display: flex; justify-content: space-between; align-items: center; gap: 12px; text-align: left; padding: 9px 12px; font-size: 13px; }
+        .dl-count { opacity: .6; font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
     </style>
 </head>
 <body>
@@ -1287,9 +1297,8 @@
             <button class="nav-stop-btn flashcard-tool" onclick="stopSpeaking()" title="Stop speaking">&#9632; Stop</button>
             <div class="sep"></div>
             <button class="nav-stop-btn flashcard-tool" onclick="openKnownCards()" title="Cards marked Known / still learning, to paste into Claude">&#128203; Known cards</button>
-            <button class="nav-stop-btn flashcard-tool" onclick="downloadMarkedSheet()" title="Download the sheet with the x column as it stands, to filter in Excel">&#11015; Download x'd sheet</button>
+            <button class="nav-stop-btn flashcard-tool" onclick="openDownloadDialog()" title="Download this sheet as CSV: everything, only the rows marked x, or only the rows without an x">&#11015; Download</button>
             <button class="nav-stop-btn flashcard-tool" onclick="openPrintDialog()" title="Print the loaded cards as double-sided flashcards (8 per Letter sheet, flip on long edge)">&#128424; Print cards</button>
-            <button class="nav-stop-btn flashcard-tool" onclick="saveUnknownCards()" title="Download every card not marked Known as a CSV (unknown_cards.csv)">&#128190; Save unknown</button>
             <button class="nav-stop-btn flashcard-tool" id="btnHideMode" onclick="toggleHideMode()" title="Cards view: hide the answer (everything after the first field). ← toggles this; → or right-click reveals a card for 10 seconds">Hide answers</button>
             <button class="nav-stop-btn" onclick="openKeysInfo()" title="Keyboard shortcuts">&#9432; Keys</button>
             <button class="theme-toggle-btn" id="themeToggle" onclick="toggleTheme()">&#9788; Light</button>
@@ -1337,6 +1346,22 @@
             </div>
         </div>
     </div>
+    <div id="downloadOverlay" onclick="if(event.target===this)closeDownloadDialog()">
+        <div id="downloadModal">
+            <h3>&#11015; Download CSV</h3>
+            <p>All three keep the sheet&rsquo;s shape &mdash; <strong>col 1</strong> = the <code>x</code> mark &middot;
+            <strong>col 2</strong> = name &middot; <strong>col 3+</strong> = back &mdash; and keep the header row.
+            The marks are the ones on screen right now.</p>
+            <div class="dl-choices">
+                <button class="known-btn primary" onclick="downloadRows('all')">Everything <span class="dl-count" id="dlCountAll"></span></button>
+                <button class="known-btn" onclick="downloadRows('marked')">Only the rows marked x <span class="dl-count" id="dlCountMarked"></span></button>
+                <button class="known-btn" onclick="downloadRows('unmarked')">Only the rows without an x <span class="dl-count" id="dlCountUnmarked"></span></button>
+            </div>
+            <div class="print-footer">
+                <button class="known-btn" onclick="closeDownloadDialog()">Cancel</button>
+            </div>
+        </div>
+    </div>
     <div id="toast" class="toast-notification">Copied!</div>
     <div id="numBufBox"></div>
 
@@ -1374,7 +1399,7 @@
             A one-handed run: <kbd>Space</kbd> to hear it, then <kbd>Enter</kbd> if you knew it, then <kbd>Down</kbd> for the next.<br>
             Sheet shape: <strong>col 1</strong> = the <code>x</code> mark &middot; <strong>col 2</strong> = name &middot; <strong>col 3+</strong> = back.
             Marks live in column 1, so they come and go with the file &mdash; keep them with
-            <strong>&#11015; Download x&rsquo;s sheet</strong>, <strong>&#128190; Save unknown</strong>, or
+            <strong>&#11015; Download</strong> (everything, only the x&rsquo;d rows, or only the rest) or
             <strong>&#11014; Push x&rsquo;s to Sheet</strong>.</p>
         </div>
     </div>
@@ -2234,6 +2259,11 @@
                 if (e.key === 'Escape') closeKeysInfo();
                 return;
             }
+            var dlOv = document.getElementById('downloadOverlay');
+            if (dlOv && dlOv.classList.contains('open')) {
+                if (e.key === 'Escape') closeDownloadDialog();
+                return;
+            }
             if (document.querySelector('#knownOverlay.open, #dbxCsvOverlay.open, #printOverlay.open')) return;
             if (e.key === 'ArrowLeft') { e.preventDefault(); toggleHideMode(); return; }
             var items = kbItems();
@@ -2430,38 +2460,57 @@
             } catch (e) { return 'HTTP ' + resp.status; }
         }
 
-        // Download just the rows with no x — the "what's left to learn" slice of the same CSV.
-        // Keeps the sheet's own shape (col 1 mark, col 2 name, col 3+ back); the deck column is
-        // gone, because choosing the deck belongs to anki_manager's import, not here.
-        function saveUnknownCards() {
-            if (!Object.keys(originalData).length) { showToast('Load a CSV first'); return; }
-            var rows = currentRows().filter(function(row, i) {
-                if (i === 0) return true;                                  // keep the header
+        // ── DOWNLOAD THE SHEET ──────────────────────────────────────────────────────────
+        // One writer, three slices: everything, only the rows marked x, only the rest.
+        // Whichever you pick you get the same shape back — the header row, then matching
+        // rows with col 1 intact — so a file downloaded here loads straight back in here,
+        // and "Only the rows without an x" is the pile still to learn.
+        //
+        // The mark is read from column 1 of the loaded data, never from knownRows, because
+        // col 1 is what every click writes to and what travels with the file.
+        var DL_KINDS = {
+            all:      { label: 'row',          suffix: '_x',       keep: function()    { return true; } },
+            marked:   { label: 'x’d row',      suffix: '_known',   keep: function(row) { return !!String(row[MARK_COL] || '').trim(); } },
+            unmarked: { label: 'unmarked row', suffix: '_unknown', keep: function(row) { return !String(row[MARK_COL] || '').trim(); } }
+        };
+
+        // Header row + the rows this slice keeps. Blank lines are dropped from all three.
+        function dlRowsFor(kind) {
+            var keep = DL_KINDS[kind].keep;
+            return currentRows().filter(function(row, i) {
+                if (i === 0) return true;
                 if (!row.some(function(c) { return String(c).trim(); })) return false;
-                return !String(row[MARK_COL] || '').trim();                // no x = still to learn
+                return keep(row);
             });
-            if (rows.length <= 1) { showToast('Every card is marked Known — nothing to save'); return; }
-            var name = (loadedName || 'cards.csv').replace(/[\\/:*?"<>|]/g, '_').replace(/\.[^.]*$/, '');
-            var a = document.createElement('a');
-            a.href = URL.createObjectURL(new Blob([Papa.unparse(rows)], { type: 'text/csv' }));
-            a.download = 'unknown_' + name + '.csv';
-            document.body.appendChild(a); a.click(); a.remove();
-            setTimeout(function() { URL.revokeObjectURL(a.href); }, 1000);
-            showToast('Downloaded ' + (rows.length - 1) + ' card(s) still to learn');
         }
 
-        // Download the sheet with the mark column as it stands — filter on col 1 in Excel.
-        function downloadMarkedSheet() {
+        function openDownloadDialog() {
             if (!Object.keys(originalData).length) { showToast('Load a CSV or xlsx first'); return; }
-            var rows = currentRows();
+            ['all', 'marked', 'unmarked'].forEach(function(kind) {
+                var n = dlRowsFor(kind).length - 1;   // minus the header
+                var el = document.getElementById('dlCount' + kind.charAt(0).toUpperCase() + kind.slice(1));
+                if (el) el.textContent = n + (n === 1 ? ' row' : ' rows');
+            });
+            document.getElementById('downloadOverlay').classList.add('open');
+        }
+
+        function closeDownloadDialog() { document.getElementById('downloadOverlay').classList.remove('open'); }
+
+        function downloadRows(kind) {
+            var k = DL_KINDS[kind];
+            if (!k) return;
+            if (!Object.keys(originalData).length) { showToast('Load a CSV or xlsx first'); return; }
+            var rows = dlRowsFor(kind);
+            if (rows.length <= 1) { showToast('No ' + k.label + 's to download'); return; }
             var name = (loadedName || 'cards.csv').replace(/[\\/:*?"<>|]/g, '_').replace(/\.[^.]*$/, '');
             var a = document.createElement('a');
             a.href = URL.createObjectURL(new Blob([Papa.unparse(rows)], { type: 'text/csv' }));
-            a.download = name + '_x.csv';
+            a.download = name + k.suffix + '.csv';
             document.body.appendChild(a); a.click(); a.remove();
             setTimeout(function() { URL.revokeObjectURL(a.href); }, 1000);
-            var n = rows.filter(function(r, i) { return i > 0 && String(r[MARK_COL] || '').trim(); }).length;
-            showToast('Downloaded ' + a.download + ' — ' + n + ' row(s) x\'d');
+            closeDownloadDialog();
+            var n = rows.length - 1;
+            showToast('Downloaded ' + a.download + ' — ' + n + ' ' + k.label + (n === 1 ? '' : 's'));
         }
 
 
