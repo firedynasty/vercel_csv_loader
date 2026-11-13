@@ -21,6 +21,17 @@
 //                col 1 = x, col 2 = name, col 3+ = back — it is just not drawn.
 //   tools        true keeps the study toolbar (TTS, Known, print, the x
 //                pipeline); false hides it, for a CSV you are only reading out of.
+//   wrap         true keeps the newlines inside a cell, for a sheet whose cells hold
+//                whole messages rather than a word or a phrase. HTML collapses them by
+//                default, which would run a message's paragraphs, lists and code blocks
+//                together into one line. Like markCol and tools it is a body class, so
+//                it costs nothing at run time; left out, it is off.
+//   markdown     true draws a cell as markdown in the cards view -- ```fences``` as code
+//                blocks, tables as tables, lists as lists -- instead of showing the
+//                backticks and pipes. Needs marked + DOMPurify from the CDN; if either
+//                fails to load the text is escaped as before, so set wrap as well and the
+//                fallback stays readable. The table view is untouched, and the clipboard
+//                and the downloads still carry the raw markdown.
 //   copy         what a click puts on the clipboard (or sends to Dropbox):
 //                'cell' = the cell you actually clicked, the old behaviour.
 //                'back' = the row's back, col 3+, wherever in the row you click —
@@ -30,8 +41,8 @@
 //
 // clickMode / view / hideAnswers / frontOnly / hideKnown are a STARTING state:
 // they are applied when you arrive from the menu, and after that the toggles in
-// the page are yours. markCol and tools belong to the profile itself and are
-// re-applied on every visit.
+// the page are yours. markCol, tools, wrap and markdown belong to the profile itself and
+// are re-applied on every visit.
 // ─────────────────────────────────────────────────────────────────────────────
 window.CSV_PROFILES = [
   {
@@ -47,6 +58,13 @@ window.CSV_PROFILES = [
     tint: '#d97706',
     blurb: 'Col 2 is the front, col 3+ the back. Answers start hidden, a click marks a card Known, and the x column rides along to the sheet.',
     state: { clickMode: 'known', view: 'cards', hideAnswers: true, frontOnly: false, hideKnown: false, markCol: true, tools: true, copy: 'cell' }
+  },
+  {
+    id: 'session-notes',
+    name: 'Session notes',
+    tint: '#7c3aed',
+    blurb: 'A Claude Code session, one card per exchange: col 2 is what you asked, col 3 what Claude answered, drawn as markdown so code blocks look like code. Click an exchange to keep it, then download only the rows marked x.',
+    state: { clickMode: 'known', view: 'cards', hideAnswers: false, frontOnly: false, hideKnown: false, markCol: true, tools: true, copy: 'back', wrap: true, markdown: true }
   },
   {
     id: 'read-aloud',
