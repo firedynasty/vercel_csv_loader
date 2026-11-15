@@ -26,12 +26,12 @@ to keep in sync.
   tint: '#8a5a2b',
   blurb: 'What it is for.',
   state: { clickMode: 'clipboard', view: 'cards', hideAnswers: false,
-           frontOnly: false, hideKnown: false, markCol: false, tools: false,
+           frontOnly: false, markCol: false, tools: false,
            copy: 'back' }
 }
 ```
 
-`clickMode` / `view` / `hideAnswers` / `frontOnly` / `hideKnown` are a **starting**
+`clickMode` / `view` / `hideAnswers` / `frontOnly` are a **starting**
 state: stamped in when you arrive from the menu, yours to change afterwards, and not
 re-stamped when you reload `/loader` without a `?profile=`. `markCol` and `tools`
 belong to the profile itself and are re-applied every visit.
@@ -39,7 +39,7 @@ belong to the profile itself and are re-applied every visit.
 `copy: 'back'` makes a click anywhere in a row — the name field included — put the
 row's back (col 3+) on the clipboard instead of the cell you happened to hit. That is
 the name + PGN case: the name is only how you find the game, the PGN is what you want
-to paste. `copy: 'cell'` is the old cell-by-cell behaviour. Known and the Speak modes
+to paste. `copy: 'cell'` is the old cell-by-cell behaviour. The Speak modes
 ignore the knob; they already act on the whole row.
 
 `wrap: true` keeps the newlines inside a cell. HTML collapses them, which is right for a
@@ -50,7 +50,7 @@ unchanged.
 
 `markdown: true` draws a cell as markdown in the **cards** view — ```` ```fences ```` as code
 blocks, tables as tables, lists as lists — via `marked` + `DOMPurify` from cdnjs. The table
-view is untouched, and the clipboard and all three downloads still carry the raw markdown,
+view is untouched, and the clipboard and both downloads still carry the raw markdown,
 because they read the parsed data and never the DOM. If either library fails to load the
 text is escaped as before and the `md-cards` class is not applied, so `wrap`'s `pre-wrap`
 is still there to keep it readable — which is why a markdown profile sets both.
@@ -60,13 +60,29 @@ per profile. `session-notes` uses it for the one thing the cards builder cannot 
 stacks a row's fields without labels, which leaves a question and an answer looking alike
 — and labels them You and Claude in CSS.
 
-`markCol: false` only stops the x column being **drawn**. The sheet's shape is
-unchanged everywhere — col 1 = x, col 2 = name (the front), col 3+ = the back — which
-is what the rest of `loader.html` counts on.
+`markCol: false` only stops the filter column being **drawn**. The sheet's shape is
+unchanged everywhere — col 1 = the filter column, col 2 = name (the front), col 3+ = the
+back — which is what the rest of `loader.html` counts on.
 
-**⬇ Download** writes three slices of the loaded sheet, all of them CSV, all of them the
-same shape — header row kept, col 1 = the `x` mark, col 2 = name, col 3+ = back — so any
-one of them loads straight back into the loader without a column shifting.
+**⬇ Download** writes the loaded sheet back out in that same shape — header row kept,
+col 1 the filter column, col 2 name, col 3+ back — so what comes out loads straight back
+into the loader without a column shifting.
+
+## Flashcard answers
+
+In the Flashcards profile, **hover over a card for 700 ms** to reveal its back. Leaving
+the card before 700 ms cancels the timer. The answer stays visible for 10 seconds;
+Right, Enter, Slash, or right-click reveals it immediately. Hovering selects a card
+without moving the page. Selecting by card number or tap/click does not start a timer.
+
+**Up/Down scroll the page normally**, without moving the card selection. The cards also
+have a wider left gutter (at least 56 px) so you can scroll beside them without hovering
+over a card or touching one on a phone.
+
+**Reveal all** shows every answer and keeps them visible until you press **Hide all**.
+Left toggles the same control. Hide all returns to revealing cards on mouseover.
+Reveal all also turns off Front only so answers can actually appear. Table view and
+Front only pause automatic reveals.
 
 ## Session notes
 
@@ -74,35 +90,28 @@ one of them loads straight back into the loader without a column shifting.
 loader's shape — one row per exchange, col 2 what you asked, col 3 what Claude answered,
 col 1 the empty x. `edithere` → **c** writes one and opens this page.
 
-The point is culling by clicking: read the exchanges, click the ones worth keeping,
-**⬇ Download → Only the rows marked x**, then
+Read the exchanges here, then **⬇ Download → Download Markdown** writes the whole
+transcript back out as the same `## You` / `## Claude` file `edithere` → **m** writes.
+`python3 -I ~/.claude/scripts/csv_to_md.py <name>.csv` does the same thing from the
+downloaded CSV; the button just saves the trip through the script.
 
-```bash
-python3 -I ~/.claude/scripts/csv_to_md.py <name>_known.csv
-```
-
-turns that slice back into Markdown — the same `## You` / `## Claude` file `edithere` → **m**
-writes, holding only the exchanges you kept. Or skip the script: **⬇ Download** offers the
-same three slices as `.md` directly, which is the same bytes.
+Culling used to happen here — click the exchanges worth keeping, download only the rows
+marked x. That went when the Known marks did: cut the rows in the sheet instead, or in
+the `.md` afterwards.
 
 ## Downloads
 
-| Choice | File | What is in it |
+| Button | File | What is in it |
 | --- | --- | --- |
-| Everything | `<name>_x.csv` | Every row, marks as they stand. For filtering on col 1 in Excel. |
-| Only the rows marked x | `<name>_known.csv` | The pile you know. |
-| Only the rows without an x | `<name>_unknown.csv` | The pile still to learn. |
+| Download CSV | `<name>.csv` | Every non-blank row, in the sheet's shape. Loads straight back in. |
+| Download Markdown | `<name>.md` | The same rows as one `## You` / `## Claude` pair each, col 3+ as the answer. |
 
-A profile with `markdown: true` gets a second set of the same three slices as `.md`
-(`<name>_known.md` and so on) — one `## You` / `## Claude` pair per row, col 3+ as the
-answer. That is the same file `~/.claude/scripts/csv_to_md.py` writes from the downloaded
-CSV, so the button just saves the trip through the script; both were diffed and are
-byte-identical. It reads the parsed rows, never the DOM, so the markdown goes out raw
+Markdown is offered on a profile with `markdown: true`. It is the same file
+`~/.claude/scripts/csv_to_md.py` writes from the downloaded CSV — both were diffed and
+are byte-identical. It reads the parsed rows, never the DOM, so the markdown goes out raw
 rather than as the rendered HTML.
 
-Blank lines are dropped from all three. The mark is read from **column 1 of the file**, not
-from the in-page click state, because col 1 is what a click writes to and what travels with
-the file.
+Blank lines are dropped from both.
 
 ## Dropbox sign-in
 

@@ -1126,7 +1126,6 @@
 
         .click-mode-toggle button[data-mode="speakFront"].active,
         .click-mode-toggle button[data-mode="speakBack"].active { background: #16a34a; }
-        .click-mode-toggle button[data-mode="known"].active { background: #d97706; }
         .sticky-nav { flex-direction: column; align-items: stretch; gap: 6px; }
         .sticky-nav .nav-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 
@@ -1136,7 +1135,7 @@
            time and survive a re-render of the table:
              body.hide-mark-col  the x column is still column 0 in the data (every other
                                  part of this file counts on that), it is only not drawn.
-             body.plain-mode     the study tools (TTS, Known, print, the x pipeline) are
+             body.plain-mode     the study tools (TTS, print, download) are
                                  noise on a CSV you are only reading out of, so hide them.
              body.wrap-lines     keep the newlines inside a cell. HTML collapses them by
                                  default, which is right for a word or a definition and
@@ -1277,15 +1276,6 @@
         .sticky-nav .gsheets-status { width: auto; text-align: left; min-height: 0; }
         body.light-mode .sticky-nav .gsheets-wrapper { background: none; }
 
-        /* Known marks */
-        .csv-card.known { border-color: #d97706; box-shadow: inset 4px 0 0 #d97706; }
-        .csv-card.known .card-num::after { content: ' ✓ Known'; color: #d97706; }
-        #csv-table tbody tr.known td { box-shadow: inset 0 0 0 999px rgba(217,119,6,0.18); }
-        body.known-mode .csv-card, body.known-mode #csv-table td, body.known-mode #csv-table th { cursor: pointer; }
-
-        /* "Show unknown" toggle (view-toggle-bar) — hides cards/rows already marked Known */
-        body.hide-known-cards .csv-card.known,
-        body.hide-known-cards #csv-table tbody tr.known { display: none; }
 
         /* "Front only" toggle (view-toggle-bar) — permanently hides the Back, no reveal (unlike
            Hide answers, which is a temporary reveal-on-click quiz mode in Cards view only) */
@@ -1293,18 +1283,19 @@
         body.front-only #csv-table td[data-col]:not([data-col="1"]),
         body.front-only #csv-table thead th:not(:nth-child(2)) { display: none; }
 
-        /* Keyboard focus: ↑/↓ moves it, Enter or / toggles Known */
+        /* Leave a clear gutter beside the cards for scrolling without hovering a card. */
+        #cards-view-wrap { padding-left: clamp(56px, 8vw, 120px); }
+
+        /* Hover, click, or a card number selects the target for Enter / →. */
         .csv-card.kb-focus { outline: 2px solid #3B82F6; outline-offset: 2px; }
         #csv-table tbody tr.kb-focus td { box-shadow: inset 0 0 0 999px rgba(59,130,246,0.22); }
-        #csv-table tbody tr.kb-focus.known td { box-shadow: inset 0 0 0 999px rgba(217,119,6,0.35); }
 
-        /* Hide mode (Cards view): only the first field shows until revealed (→ or right-click) */
+        /* Hide mode: hovering a card for 700ms reveals it; → or right-click reveals immediately. */
         .csv-card .card-hint { display: none; color: #64748b; font-size: 12px; font-style: italic; padding: 4px 8px; }
         body.cards-hide .csv-card:not(.revealed) .card-answer { display: none; }
         body.cards-hide .csv-card:not(.revealed) .card-hint { display: block; }
         #btnHideMode.hide-on { background: #7c3aed; border-color: #7c3aed; color: white; }
 
-        /* Known cards modal */
         /* Keys info popup */
         #keysOverlay {
             display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
@@ -1330,33 +1321,14 @@
         body.light-mode #keysModal td { border-top-color: #e5e7eb; }
         body.light-mode #keysModal kbd { background: #f1f5f9; border-color: #cbd5e1; color: #0f172a; }
 
-        #knownOverlay {
-            display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.72);
-            z-index: 9999; align-items: center; justify-content: center;
-        }
-        #knownOverlay.open { display: flex; }
-        #knownModal {
-            background: #1a1a2e; border: 1px solid rgba(255,255,255,0.15); border-radius: 12px;
-            width: min(640px, calc(100vw - 32px)); padding: 16px; display: flex; flex-direction: column; gap: 10px;
-            max-height: calc(100vh - 32px); overflow-y: auto;
-        }
-        #knownModal .known-mode-bar { margin-bottom: 0; }
-        #knownText, #knownPromptText {
-            width: 100%; font-size: 12px; font-family: inherit; padding: 8px; border-radius: 6px;
-            background: rgba(255,255,255,0.06); color: #fff; border: 1px solid rgba(255,255,255,0.2); resize: vertical;
-        }
-        #knownInfo { font-size: 11px; color: rgba(255,255,255,0.6); }
-        .known-footer { display: flex; gap: 8px; align-items: center; }
-        .known-btn {
+        /* Buttons inside the print and download dialogs. */
+        .dlg-btn {
             border: 1px solid rgba(255,255,255,0.25); background: transparent; color: #fff;
             border-radius: 6px; padding: 6px 12px; font-size: 12px; cursor: pointer;
         }
-        .known-btn.primary { background: #3B82F6; border-color: #3B82F6; }
-        body.light-mode #knownModal { background: #fff; color: #1a1a1a; border-color: #ddd; }
-        body.light-mode #knownText, body.light-mode #knownPromptText { background: #f8fafc; color: #1a1a1a; border-color: #ccc; }
-        body.light-mode #knownInfo { color: #666; }
-        body.light-mode .known-btn { color: #333; border-color: #ccc; }
-        body.light-mode .known-btn.primary { color: #fff; border-color: #3B82F6; }
+        .dlg-btn.primary { background: #3B82F6; border-color: #3B82F6; }
+        body.light-mode .dlg-btn { color: #333; border-color: #ccc; }
+        body.light-mode .dlg-btn.primary { color: #fff; border-color: #3B82F6; }
         .csv-card .card-field.speaking { background: rgba(22,163,74,0.25); }
         body.light-mode .csv-card .card-field.speaking { background: #bbf7d0; }
         /* Download modal: same shell as #printModal. */
@@ -1385,7 +1357,6 @@
             </div>
             <button class="gsheets-btn" id="dropboxBtn" onclick="handleDropboxClick()" oncontextmenu="return handleDropboxRightClick(event)" title="Sign in to Dropbox to browse and load CSV files. Right-click to sign out.">DB: Sign In</button>
             <button class="gsheets-btn" onclick="window.open('/items-for-sale', '_blank')" title="Open Items for Sale page">Items for Sale</button>
-            <button class="gsheets-btn flashcard-tool" id="pushXBtn" onclick="pushXToSheet()" disabled title="Write this table into a &quot;&lt;tab&gt;_x&quot; tab of the Google Sheet you loaded, x column and all, so you can study it from any browser. The tab you loaded is never touched.">⬆ Push x’s to Sheet</button>
             <div class="gsheets-status" id="gsheetsStatus"></div>
         </div>
         <div class="nav-row">
@@ -1398,7 +1369,6 @@
                 <button data-mode="dropbox" onclick="setClickMode('dropbox')" title="Clicking a cell sends it to Dropbox /blob_vercel_replacement/blob_clipboard_content.txt (same file as vercel_clipboard_manager; requires Dropbox sign-in)">Dropbox</button>
                 <button class="flashcard-tool" data-mode="speakFront" onclick="setClickMode('speakFront')" title="Click a card/row to read its Front aloud. On the keyboard the keys are fixed: , reads the name, . reads the back, Space reads the whole card">Speak Front</button>
                 <button class="flashcard-tool" data-mode="speakBack" onclick="setClickMode('speakBack')" title="Click a card/row to read its Back aloud. On the keyboard: . reads the back, Space reads the whole card">Speak Back</button>
-                <button class="flashcard-tool" data-mode="known" onclick="setClickMode('known')" title="Clicking a card (or table row) marks it Known; click again to unmark. On the keyboard Enter or / always marks Known, whatever this is set to">Known</button>
             </div>
             <div class="sep flashcard-tool"></div>
             <span class="nav-label flashcard-tool">TTS</span>
@@ -1412,10 +1382,9 @@
             <select class="flashcard-tool" id="ttsLangSelect" onchange="setTtsLang(this.value)" title="Language used when Speak mode reads a card field"></select>
             <button class="nav-stop-btn flashcard-tool" onclick="stopSpeaking()" title="Stop speaking">&#9632; Stop</button>
             <div class="sep"></div>
-            <button class="nav-stop-btn flashcard-tool" onclick="openKnownCards()" title="Cards marked Known / still learning, to paste into Claude">&#128203; Known cards</button>
             <button class="nav-stop-btn flashcard-tool" onclick="openDownloadDialog()" title="Download this sheet as CSV: everything, only the rows marked x, or only the rows without an x">&#11015; Download</button>
             <button class="nav-stop-btn flashcard-tool" onclick="openPrintDialog()" title="Print the loaded cards as double-sided flashcards (8 per Letter sheet, flip on long edge)">&#128424; Print cards</button>
-            <button class="nav-stop-btn flashcard-tool" id="btnHideMode" onclick="toggleHideMode()" title="Cards view: hide the answer (everything after the first field). ← toggles this; → or right-click reveals a card for 10 seconds">Hide answers</button>
+            <button class="nav-stop-btn flashcard-tool" id="btnHideMode" onclick="toggleHideMode()" aria-pressed="true" title="Reveal every answer until toggled back to Hide all. In study mode, hover over a card for 700 ms to reveal it; → reveals immediately for 10 seconds. ← toggles all answers.">Hide all</button>
             <button class="nav-stop-btn" onclick="openKeysInfo()" title="Keyboard shortcuts">&#9432; Keys</button>
             <button class="theme-toggle-btn" id="themeToggle" onclick="toggleTheme()">&#9788; Light</button>
         </div>
@@ -1450,109 +1419,75 @@
     <div id="printOverlay" onclick="if(event.target===this)closePrintDialog()">
         <div id="printModal">
             <h3>&#128424; Print flashcards</h3>
-            <label><input type="radio" name="printPile" value="unknown" checked> Only cards not marked Known</label>
-            <label><input type="radio" name="printPile" value="all"> All cards</label>
             <label><input type="radio" name="printMode" value="duplex" checked> Duplex (double-sided): backs mirrored to line up when flipped</label>
             <label><input type="radio" name="printMode" value="single"> Single pages (one-sided): backs in the same order as fronts</label>
             <label><input type="checkbox" id="printTest"> Test sheet only (first 8 cards, front + back) to check alignment</label>
-            <p>8 cards per US Letter sheet, 2 columns &times; 4 rows. Each card shows its number (#15 = the number you type here to mark it Known). For Duplex, choose <b>Two-sided &rarr; Flip on long edge</b> in the print dialog; for Single pages, turn two-sided off. Scale 100%, margins none.</p>
+            <p>8 cards per US Letter sheet, 2 columns &times; 4 rows. Each card shows its number (#15 = the number you type to jump to it). For Duplex, choose <b>Two-sided &rarr; Flip on long edge</b> in the print dialog; for Single pages, turn two-sided off. Scale 100%, margins none.</p>
             <div class="print-footer">
-                <button class="known-btn" onclick="closePrintDialog()">Cancel</button>
-                <button class="known-btn primary" onclick="printCards()">Print</button>
+                <button class="dlg-btn" onclick="closePrintDialog()">Cancel</button>
+                <button class="dlg-btn primary" onclick="printCards()">Print</button>
             </div>
         </div>
     </div>
     <div id="downloadOverlay" onclick="if(event.target===this)closeDownloadDialog()">
         <div id="downloadModal">
             <h3>&#11015; Download CSV</h3>
-            <p>All three keep the sheet&rsquo;s shape &mdash; <strong>col 1</strong> = the <code>x</code> mark &middot;
-            <strong>col 2</strong> = name &middot; <strong>col 3+</strong> = back &mdash; and keep the header row.
-            The marks are the ones on screen right now.</p>
+            <p>Keeps the sheet&rsquo;s shape &mdash; <strong>col 1</strong> = the filter column &middot;
+            <strong>col 2</strong> = name &middot; <strong>col 3+</strong> = back &mdash; and keeps the header row.
+            Blank rows are dropped.</p>
             <div class="dl-choices">
-                <button class="known-btn primary" onclick="downloadRows('all')">Everything <span class="dl-count" id="dlCountAll"></span></button>
-                <button class="known-btn" onclick="downloadRows('marked')">Only the rows marked x <span class="dl-count" id="dlCountMarked"></span></button>
-                <button class="known-btn" onclick="downloadRows('unmarked')">Only the rows without an x <span class="dl-count" id="dlCountUnmarked"></span></button>
+                <button class="dlg-btn primary" onclick="downloadRows()">Download CSV <span class="dl-count" id="dlCountAll"></span></button>
             </div>
             <div id="dlMarkdown">
                 <h3>&#11015; Download Markdown</h3>
-                <p>The same three slices as <code>.md</code> instead: one <code>## You</code> /
-                <code>## Claude</code> pair per row, col 3+ as the answer. Keep the rows worth
-                keeping, download them here, and that is the culled transcript &mdash; no script to run.</p>
+                <p>The same rows as <code>.md</code> instead: one <code>## You</code> /
+                <code>## Claude</code> pair per row, col 3+ as the answer &mdash; the culled
+                transcript, no script to run.</p>
                 <div class="dl-choices">
-                    <button class="known-btn" onclick="downloadMarkdown('all')">Everything <span class="dl-count" id="dlMdAll"></span></button>
-                    <button class="known-btn primary" onclick="downloadMarkdown('marked')">Only the rows marked x <span class="dl-count" id="dlMdMarked"></span></button>
-                    <button class="known-btn" onclick="downloadMarkdown('unmarked')">Only the rows without an x <span class="dl-count" id="dlMdUnmarked"></span></button>
+                    <button class="dlg-btn" onclick="downloadMarkdown()">Download Markdown <span class="dl-count" id="dlMdAll"></span></button>
                 </div>
             </div>
             <div class="print-footer">
-                <button class="known-btn" onclick="closeDownloadDialog()">Cancel</button>
+                <button class="dlg-btn" onclick="closeDownloadDialog()">Cancel</button>
             </div>
         </div>
     </div>
     <div id="toast" class="toast-notification">Copied!</div>
     <div id="numBufBox"></div>
 
-    <!-- Known cards (ported from vercel_flashcards/anki_manager.html) -->
     <div id="keysOverlay" onclick="if(event.target===this)closeKeysInfo()">
         <div id="keysModal">
             <h3>Keyboard shortcuts <button class="keys-close" onclick="closeKeysInfo()">&times;</button></h3>
             <p style="margin:0 0 10px;font-size:12px;opacity:.8">These keys always do the same thing. The
             <strong>Click &rarr;</strong> buttons only change what a <em>mouse click</em> does, so you can hear a card
-            and mark it without switching modes.</p>
+            and reveal it without switching modes.</p>
             <table>
                 <tr><th colspan="2" style="text-align:left;padding-top:6px;font-size:11px;letter-spacing:.06em;opacity:.6;text-transform:uppercase">Move</th></tr>
-                <tr><td><kbd>Down</kbd> <kbd>Up</kbd></td><td>Next / previous card (rows in Table view)</td></tr>
-                <tr><td><kbd>Number keys</kbd></td><td>Type a card number (e.g. type 1 then 5) &mdash; <kbd>Enter</kbd> or a short pause jumps to card #15. It <em>only</em> jumps, so nothing is marked by accident</td></tr>
+                <tr><td><kbd>Down</kbd> <kbd>Up</kbd></td><td>Scroll the page normally, without changing the selected card</td></tr>
+                <tr><td><kbd>Number keys</kbd></td><td>Type a card number (e.g. type 1 then 5) &mdash; <kbd>Enter</kbd> or a short pause jumps to card #15</td></tr>
 
                 <tr><th colspan="2" style="text-align:left;padding-top:10px;font-size:11px;letter-spacing:.06em;opacity:.6;text-transform:uppercase">Listen</th></tr>
                 <tr><td><kbd>Space</kbd></td><td><strong>The whole card</strong> &mdash; name, then everything after it, read straight through</td></tr>
                 <tr><td><kbd>Comma</kbd></td><td>Just the <strong>name</strong> (column 2)</td></tr>
                 <tr><td><kbd>Period</kbd></td><td>Just the <strong>back</strong> (column 3 onward)</td></tr>
-                <tr><td colspan="2" style="font-size:12px;opacity:.7">All three read from the file, so they work even while <em>Front only</em> or <em>Hide answers</em> is hiding the back.</td></tr>
-
-                <tr><th colspan="2" style="text-align:left;padding-top:10px;font-size:11px;letter-spacing:.06em;opacity:.6;text-transform:uppercase">Mark</th></tr>
-                <tr><td><kbd>Enter</kbd> <kbd>Slash</kbd></td><td>Mark the highlighted card <strong>Known</strong> &mdash; writes <code>x</code> into column 1. Press again to unmark</td></tr>
+                <tr><td colspan="2" style="font-size:12px;opacity:.7">All three read from the file, so they work even while <em>Front only</em> or <em>Hide all</em> is hiding the back.</td></tr>
 
                 <tr><th colspan="2" style="text-align:left;padding-top:10px;font-size:11px;letter-spacing:.06em;opacity:.6;text-transform:uppercase">Answers</th></tr>
-                <tr><td><kbd>Left</kbd></td><td>Turn <em>Hide answers</em> on / off (switches to Cards view)</td></tr>
-                <tr><td><kbd>Right</kbd></td><td>With Hide answers on: reveal the highlighted card for 10 seconds</td></tr>
+                <tr><td>Mouseover</td><td>In study mode, hover over a card for 700ms to reveal its back for 10 seconds. Leaving before 700ms cancels the reveal.</td></tr>
+                <tr><td><kbd>Left</kbd></td><td>Toggle <em>Reveal all / Hide all</em> (switches to Cards view). Reveal all stays on until toggled back.</td></tr>
+                <tr><td><kbd>Right</kbd></td><td>In study mode: reveal the highlighted card immediately for 10 seconds</td></tr>
+                <tr><td><kbd>Enter</kbd> <kbd>Slash</kbd></td><td>The same reveal, on the hand you already have on the keyboard</td></tr>
 
                 <tr><th colspan="2" style="text-align:left;padding-top:10px;font-size:11px;letter-spacing:.06em;opacity:.6;text-transform:uppercase">Mouse</th></tr>
                 <tr><td>Left click</td><td>Highlight a card, and do whatever <strong>Click &rarr;</strong> is set to</td></tr>
-                <tr><td>Right click</td><td>With Hide answers on: reveal that card for 10 seconds</td></tr>
+                <tr><td>Right click</td><td>In study mode: reveal that card immediately for 10 seconds</td></tr>
+                <tr><td>Scroll gutter</td><td>Use the wider space to the left of the cards to scroll without triggering a reveal</td></tr>
                 <tr><td><kbd>Esc</kbd></td><td>Close this box</td></tr>
             </table>
             <p style="margin:12px 0 0;font-size:12px;opacity:.75">
-            A one-handed run: <kbd>Space</kbd> to hear it, then <kbd>Enter</kbd> if you knew it, then <kbd>Down</kbd> for the next.<br>
-            Sheet shape: <strong>col 1</strong> = the <code>x</code> mark &middot; <strong>col 2</strong> = name &middot; <strong>col 3+</strong> = back.
-            Marks live in column 1, so they come and go with the file &mdash; keep them with
-            <strong>&#11015; Download</strong> (everything, only the x&rsquo;d rows, or only the rest) or
-            <strong>&#11014; Push x&rsquo;s to Sheet</strong>.</p>
-        </div>
-    </div>
-
-    <div id="knownOverlay" onclick="if(event.target===this)closeKnownCards()">
-        <div id="knownModal">
-            <div class="dcm-header">
-                <h3>&#128203; Known cards</h3>
-                <button class="dcm-close" onclick="closeKnownCards()">&times;</button>
-            </div>
-            <div class="view-toggle-bar known-mode-bar">
-                <button id="knownModeAll" class="active" onclick="setKnownMode('all')">All cards</button>
-                <button id="knownModeKnown" onclick="setKnownMode('known')">Known</button>
-                <button id="knownModeLearning" onclick="setKnownMode('learning')">Still learning</button>
-            </div>
-            <textarea id="knownText" rows="10" oninput="renderKnownPrompt()"></textarea>
-            <div id="knownInfo"></div>
-            <textarea id="knownPromptText" rows="14" style="display:none" title="The full prompt Copy + prompt copies; edits here are copied too"></textarea>
-            <div class="known-footer">
-                <button class="known-btn" onclick="clearKnownRows()" title="Unmark every card in this file">Clear marks</button>
-                <span style="flex:1"></span>
-                <button class="known-btn" id="knownViewPromptBtn" onclick="toggleKnownPrompt()" title="Show the full prompt that Copy + prompt copies">View prompt</button>
-                <button class="known-btn" onclick="closeKnownCards()">Close</button>
-                <button class="known-btn" id="knownCopyBtn" onclick="copyKnownCards()">Copy</button>
-                <button class="known-btn primary" id="knownPromptBtn" onclick="copyKnownWithPrompt()" title="Socratic tutoring prompt with this list filled in">Copy + prompt</button>
-            </div>
+            Hover to check an answer; use <kbd>Up</kbd> / <kbd>Down</kbd> or the left gutter to scroll.<br>
+            Sheet shape: <strong>col 1</strong> = the filter column &middot; <strong>col 2</strong> = name &middot; <strong>col 3+</strong> = back.
+            Keeping track of what you know is Anki&rsquo;s job, not this page&rsquo;s — this page loads the sheet and drills it.</p>
         </div>
     </div>
 
@@ -1796,7 +1731,6 @@
                     localStorage.setItem('csv-view', s.view);
                     localStorage.setItem('csv-hide-answers', s.hideAnswers ? '1' : '0');
                     localStorage.setItem('csv-front-only', s.frontOnly ? '1' : '0');
-                    localStorage.setItem('csv-hide-known', s.hideKnown ? '1' : '0');
                 } catch (e) {}
             }
             return p;
@@ -1844,8 +1778,8 @@
         // which is the point of a name + PGN sheet: the name is only how you find the game,
         // the PGN is what you want on the clipboard.
         //
-        // Known and the two Speak modes are untouched by this — they already act on the whole
-        // row and intercept the click before it gets here.
+        // The two Speak modes are untouched by this — they already act on the whole row and
+        // intercept the click before it gets here.
         function copiesBack() {
             return activeProfile.state.copy === 'back'
                 && (clickMode === 'clipboard' || clickMode === 'dropbox');
@@ -1873,7 +1807,7 @@
 
         // ============ CLICK MODE (clipboard vs Dropbox) ============
         const DROPBOX_CLIPBOARD_PATH = '/blob_vercel_replacement/blob_clipboard_content.txt';
-        var CLICK_MODES = ['clipboard', 'dropbox', 'speakFront', 'speakBack', 'known'];
+        var CLICK_MODES = ['clipboard', 'dropbox', 'speakFront', 'speakBack'];
         var clickMode = CLICK_MODES.indexOf(localStorage.getItem('csv-click-mode')) >= 0 ? localStorage.getItem('csv-click-mode') : 'clipboard';
 
         function setClickMode(mode) {
@@ -1886,7 +1820,6 @@
             if (clickMode === 'dropbox' && !signedIn) showToast('Sign in to Dropbox (DB button) to send clicks there');
             // No forced switch to Cards view for Speak Front/Back: Table view supports them too
             // now (left click and Enter both speak the whole row, same as Cards).
-            document.body.classList.toggle('known-mode', clickMode === 'known');
         }
 
         function copyToClipboard(text, cell) {
@@ -1953,7 +1886,7 @@
         // "Already has one" = no data row puts anything in col 1 except a mark token. That makes
         // the insert idempotent: after inserting, col 1 is all blank, which still reads as a mark
         // column, so download -> reopen -> download never stacks up blank columns. Digits are not
-        // mark tokens (an id column of 1s is content), matching rowMarked().
+        // mark tokens (an id column of 1s is content).
         var MARK_RE = /^(x|\u2713|\u2714)$/i;
 
         function hasMarkColumn(data) {
@@ -1973,8 +1906,8 @@
 
         // ── HEADER ROW: synthesize one when the file has none ───────────────────────────
         // The table and cards views always treat row 0 as the header, so a headerless file lost
-        // its first card to it — and ensureMarkColumn, which writes "x" into row 0's mark cell,
-        // marked that card known. A header is recognized by a known label in the NAME column or
+        // its first card to it — and ensureMarkColumn writes "x" into row 0's mark cell, which
+        // then read as a card front. A header is recognized by a known label in the NAME column or
         // later; the mark column is skipped, or a headerless "x,A," row would match on its "x".
         var HEADER_WORDS = ['name','term','word','vocab','vocabulary','front','back','question','answer',
                             'definition','meaning','english','chinese','pinyin','spanish','korean','hebrew',
@@ -2013,6 +1946,9 @@
         }
 
         function renderTableFromData(data) {
+            resetCardReveals();
+            hoveredCard = null;
+            kbFocusRow = null;
             if (!data || data.length === 0) {
                 document.getElementById('table-container').innerHTML = '<p>No data to display</p>';
                 return;
@@ -2031,14 +1967,10 @@
             var bodyRows = data.slice(1);
 
             // View toggle bar
-            var hideKnown = localStorage.getItem('csv-hide-known') === '1';
             var frontOnly = localStorage.getItem('csv-front-only') === '1';
             var html = '<div class="view-toggle-bar">'
                 + '<button id="btnViewTable" onclick="setView(\'table\')">Table</button>'
                 + '<button id="btnViewCards" onclick="setView(\'cards\')">Cards</button>'
-                + '<button id="btnHideKnown" class="flashcard-tool ' + (hideKnown ? 'active' : '') + '" onclick="toggleHideKnown()" '
-                + 'title="Hide cards already marked Known, to focus on what\'s still unknown">'
-                + (hideKnown ? 'Showing unknown' : 'Show unknown') + '</button>'
                 + '<button id="btnFrontOnly" class="flashcard-tool ' + (frontOnly ? 'active' : '') + '" onclick="toggleFrontOnly()" '
                 + 'title="Hide the Back/answer entirely, no reveal — just browse fronts">'
                 + (frontOnly ? 'Front only ✓' : 'Front only') + '</button>'
@@ -2082,7 +2014,7 @@
                     if (colIndex === MARK_COL) return;   // the x is a filter, not a field
                     var text = cell !== null && cell !== undefined ? String(cell) : '';
                     if (!text.trim()) return; // skip empty fields
-                    if (shown++ === 1) html += '<div class="card-hint">→ or right-click to reveal</div>';
+                    if (shown++ === 1) html += '<div class="card-hint">Hover for 700ms to reveal · → or right-click now (← toggle reveal all)</div>';
                     html += '<div class="card-field' + (shown > 1 ? ' card-answer' : '') + '" data-row="' + rowIndex + '" data-col="' + colIndex + '">';
                     html += '<div class="card-value">' + fieldHtml(text) + '</div>';
                     html += '</div>';
@@ -2097,7 +2029,6 @@
                 td.addEventListener('click', function() {
                     var r = parseInt(this.dataset.row);
                     var c = parseInt(this.dataset.col);
-                    if (clickMode === 'known') { toggleKnownRow(r); return; }
                     // Left click matches Enter: it speaks the whole row's Front/Back, not just
                     // the cell you clicked — click anywhere in the row, same result either way.
                     if (clickMode === 'speakFront') { speakFrontOfRow(this.closest('tr'), String(r)); return; }
@@ -2108,7 +2039,6 @@
 
             document.querySelectorAll('#csv-table thead th').forEach(function(th) {
                 th.addEventListener('click', function() {
-                    if (clickMode === 'known') { toggleKnownRow(0); return; }
                     copyToClipboard(this.dataset.value, this);
                 });
             });
@@ -2117,18 +2047,28 @@
                 field.addEventListener('click', function() {
                     var r = parseInt(this.dataset.row);
                     var c = parseInt(this.dataset.col);
-                    if (clickMode === 'known') return; // handled by the card's own listener
                     if (clickMode === 'speakFront' || clickMode === 'speakBack') return; // ditto — speaks the whole row, not just this field
                     copyToClipboard(clickCopyText(r, c), this);
                 });
             });
 
             document.querySelectorAll('#cards-view-wrap .csv-card').forEach(function(card) {
+                card.addEventListener('pointerenter', function(e) {
+                    if (e.pointerType !== 'mouse' && e.pointerType !== 'pen') return;
+                    hoveredCard = this;
+                    kbFocus(this.dataset.row, false); // hovering must not move the page
+                    scheduleAutoReveal();
+                });
+                card.addEventListener('pointerleave', function() {
+                    if (hoveredCard !== this) return;
+                    hoveredCard = null;
+                    scheduleAutoReveal(); // cancel the pending reveal when leaving the card
+                });
                 card.addEventListener('click', function(e) {
                     var row = this.dataset.row;
                     // Rendered markdown brings real links with it. Follow the link in a new tab
                     // and leave the card alone -- otherwise a click on a URL in a message would
-                    // mark the card Known and navigate away from the sheet you are working on.
+                    // navigate away from the sheet you are working on.
                     var link = e.target.closest && e.target.closest('.card-value a[href]');
                     if (link) {
                         e.preventDefault();
@@ -2143,12 +2083,11 @@
                         kbFocus(row);
                         return;
                     }
-                    if (clickMode === 'known') toggleKnownRow(parseInt(row));
                     // Left click matches Enter: speaks the whole row's Front/Back no matter
                     // which field inside the card you actually clicked.
-                    else if (clickMode === 'speakFront') speakFrontOfRow(this, row);
+                    if (clickMode === 'speakFront') speakFrontOfRow(this, row);
                     else if (clickMode === 'speakBack') speakBackOfRow(this, row);
-                    kbFocus(row);  // left click highlights the card for ↑/↓/→/Enter
+                    kbFocus(row);  // left click selects the card for →/Enter
                 });
                 card.addEventListener('contextmenu', function(e) {
                     if (!document.body.classList.contains('cards-hide')) return; // normal menu when not hiding
@@ -2157,7 +2096,6 @@
                 });
             });
 
-            loadKnownRows(data);
             persistTableData(data);
             kbFocusRow = null;
             loadedDbxPath = null;  // dbxCsvLoad sets it after this returns
@@ -2191,6 +2129,7 @@
             if (fontControls) fontControls.style.display = viewType === 'cards' ? 'inline' : 'none';
             localStorage.setItem('csv-view', viewType);
             if (typeof kbFocusRow !== 'undefined' && kbFocusRow !== null) kbFocus(kbFocusRow);
+            scheduleAutoReveal();
         }
 
         function applyCardFont() {
@@ -2206,95 +2145,26 @@
             applyCardFont();
         }
 
-        // ============ KNOWN CARDS (ported from vercel_flashcards/anki_manager.html) ============
-        // In Known click mode, clicking a card (or table row) marks that row Known; click again to
-        // unmark. Unmarked rows count as "Still learning". Marks are kept per file content in
-        // localStorage. Rows read as "col 2 → col 3+", i.e. Anki's "Front → Back" with the
-        // mark column in front of them.
-        var knownRows = {};       // data row index -> true
-        var knownMode = 'all';
+        // ── SHEET SHAPE (the source of truth) ─────────────────────────
+        //   col 0 = filter column   col 1 = name (the front)   col 2..n = the back, stacked.
+        // Col 0 stays part of the shape — it is what the sheets here already have, and what
+        // Anki exports and imports around — but this page no longer writes to it. Keeping
+        // track of what you know is Anki's job; this page loads a sheet and drills it.
+        //
+        // Retired here: the Known click mode, the x the keyboard used to write, the "Show
+        // unknown" filter, "Push x's to Sheet", the Known-cards modal and the download slices
+        // that read the mark. Their localStorage keys are cleared once, so nothing stale is
+        // left hiding rows.
+        try { localStorage.removeItem('csv-known-fronts'); localStorage.removeItem('csv-hide-known'); } catch (e) {}
 
-        // Retired: 'csv-known-fronts' was one global set of marks keyed by front text, shared by
-        // every file. It is cleared once here so stale marks from it can't reappear.
-        try { localStorage.removeItem('csv-known-fronts'); } catch (e) {}
-
-        // ── SHEET SHAPE (the source of truth) ──────────────────────────────────────
-        //   col 0 = filter mark ("x" = known / good to go)   col 1 = name (the front, and the
-        //   identity used to match Anki)   col 2..n = the back, stacked.
-        // The mark column is a PROJECTION, never merged state: Pull x from Anki blanks it and
-        // re-stamps it from a fresh query, so running the pull twice gives the same sheet.
         var MARK_COL = 0, NAME_COL = 1;
-        var MARK = 'x';
-
-        function knownFront(r) {
-            return String(originalData[r] && originalData[r][NAME_COL] || '').replace(/\s+/g, ' ').trim().toLowerCase();
-        }
-
-        // Is col 0 marked for this row? Any non-empty value that isn't a number counts, so "x",
-        // "X" and "✓" all read as marked.
-        function rowMarked(r) {
-            var v = String(originalData[r] && originalData[r][MARK_COL] || '').trim();
-            return !!v && !/^[0-9.]+$/.test(v);
-        }
-
-        function setRowMark(r, on) {
-            if (originalData[r]) originalData[r][MARK_COL] = on ? MARK : '';
-        }
-
-        // A row with a name but nothing in col 2..n is a section heading ("x | A | | "), not a
-        // card. It never became an Anki note, so the pull leaves its mark column alone instead
-        // of clearing a marker you put there yourself.
+        // A row with a name but nothing in col 2..n is a section heading, not a card: there is
+        // nothing to put on the back of it, so print and the card list skip it.
         function rowHasBack(r) {
             var row = originalData[r] || {};
             return Object.keys(row).some(function(c) {
                 return Number(c) > NAME_COL && String(row[c] || '').trim();
             });
-        }
-
-        // The sheet's own mark column wins: an x in col 0 means known even if this browser has
-        // never seen the file. localStorage click-marks are unioned in on top.
-        // Marks come from the file's own mark column and nowhere else, so opening a different
-        // sheet starts clean and deleting the x column in the sheet actually clears the marks.
-        // (It used to union in a single global localStorage set keyed by front text, shared
-        // across every file: switching sheets carried marks over, and a column you deleted came
-        // straight back on the next load.)
-        function loadKnownRows(data) {
-            knownRows = {};
-            Object.keys(originalData).forEach(function(r) {
-                if (r === '0') return;              // header
-                if (rowMarked(r)) knownRows[r] = true;
-            });
-            applyKnownMarks();
-        }
-
-        // Marks live in the table's mark column, so saving a mark means re-saving the table.
-        // persistTableData keeps it in sessionStorage, which is what a reload restores from.
-        function saveKnownRows() {
-            try { persistTableData(currentRows()); } catch (e) {}
-        }
-
-        function applyKnownMarks() {
-            document.querySelectorAll('#cards-view-wrap .csv-card[data-row], #csv-table tbody tr[data-row]').forEach(function(el) {
-                el.classList.toggle('known', !!knownRows[el.dataset.row]);
-            });
-        }
-
-        // "Show unknown" (view-toggle-bar, next to Table/Cards): hides anything already marked
-        // Known via body.hide-known-cards + CSS, same approach as the Hide-answers toggle. Stays
-        // correct automatically as Known marks change (clicking, loading a file, Pull/Push) since
-        // it only hides by the .known class those already apply — no separate re-filter needed.
-        document.addEventListener('DOMContentLoaded', function() {
-            document.body.classList.toggle('hide-known-cards', localStorage.getItem('csv-hide-known') === '1');
-        });
-
-        function toggleHideKnown() {
-            var on = localStorage.getItem('csv-hide-known') !== '1';
-            try { localStorage.setItem('csv-hide-known', on ? '1' : '0'); } catch (e) {}
-            document.body.classList.toggle('hide-known-cards', on);
-            var btn = document.getElementById('btnHideKnown');
-            if (btn) { btn.classList.toggle('active', on); btn.textContent = on ? 'Showing unknown' : 'Show unknown'; }
-            var hidden = Object.keys(knownRows).length;
-            showToast(on ? 'Hiding ' + hidden + ' known card(s)' : 'Showing all cards');
         }
 
         // "Front only" (view-toggle-bar): permanently hides the Back/answer in both views, no
@@ -2305,51 +2175,52 @@
 
         function toggleFrontOnly() {
             var on = localStorage.getItem('csv-front-only') !== '1';
+            setFrontOnly(on);
+            showToast(on ? 'Showing fronts only' : 'Showing fronts and backs');
+        }
+
+        function setFrontOnly(on) {
             try { localStorage.setItem('csv-front-only', on ? '1' : '0'); } catch (e) {}
             document.body.classList.toggle('front-only', on);
             var btn = document.getElementById('btnFrontOnly');
             if (btn) { btn.classList.toggle('active', on); btn.textContent = on ? 'Front only ✓' : 'Front only'; }
-            showToast(on ? 'Showing fronts only' : 'Showing fronts and backs');
+            resetCardReveals();
+            scheduleAutoReveal();
         }
 
-        function toggleKnownRow(r) {
-            if (knownRows[r]) delete knownRows[r]; else knownRows[r] = true;
-            setRowMark(r, !!knownRows[r]);   // keep col 0 in step, so Download x'd sheet is right
-            saveKnownRows();
-            applyKnownMarks();
-            var count = Object.keys(knownRows).length;
-            showToast((knownRows[r] ? 'Marked Known' : 'Unmarked') + ' — ' + count + ' known');
-        }
-
-        // ── HIDE MODE (Cards view): show only the first field; → or right-click reveals, ← hides ──
+        // Study mode reveals a card after hovering for 700ms. Reveal all stays on until toggled back.
         function applyHideMode() {
             var on = localStorage.getItem('csv-hide-answers') === '1';
             document.body.classList.toggle('cards-hide', on);
             var btn = document.getElementById('btnHideMode');
-            if (btn) { btn.classList.toggle('hide-on', on); btn.textContent = on ? 'Show answers' : 'Hide answers'; }
+            if (btn) {
+                btn.classList.toggle('hide-on', on);
+                btn.textContent = on ? 'Reveal all' : 'Hide all';
+                btn.setAttribute('aria-pressed', String(!on));
+            }
+            scheduleAutoReveal();
         }
 
         document.addEventListener('DOMContentLoaded', applyHideMode);
 
         function toggleHideMode() {
-            if (document.getElementById('table-view-wrap') && localStorage.getItem('csv-hide-answers') !== '1') setView('cards');
             var on = localStorage.getItem('csv-hide-answers') !== '1';
             try { localStorage.setItem('csv-hide-answers', on ? '1' : '0'); } catch (e) {}
-            document.querySelectorAll('#cards-view-wrap .csv-card.revealed').forEach(function(c) {
-                clearTimeout(c._revealTimer);
-                c.classList.remove('revealed');
-            });
+            resetCardReveals();
+            // Front only hides answers in CSS even when every card has been revealed.
+            if (!on && document.body.classList.contains('front-only')) setFrontOnly(false);
             applyHideMode();
-            showToast(on ? 'Answers hidden — → reveals for 10s' : 'Answers shown');
+            setView('cards');
+            showToast(on ? 'Answers hidden — hover over a card for 700ms to reveal' : 'All answers revealed');
         }
 
         // ── KEYBOARD ──────────────────────────────────────────────────────────────────────
-        //   ↑ ↓   move between cards (rows in Table view)
-        //   Enter / '/'   toggle Known        Space  speak the whole card (name + back)
+        //   ↑ ↓   native page scrolling; these keys never change the selected card
+        //   Enter / '/'   reveal the focused card     Space  speak the whole card (name + back)
         //   ','   speak the name              '.'    speak the back
         //   ←  Hide answers on/off            →      reveal the focused card for 10s
         // These are FIXED: they no longer follow the Click → mode, so one hand can run a session
-        // (Space to hear it, Enter to mark it off, ↓ for the next) without switching modes. The
+        // (Space to hear it, Enter to check it) without switching modes. The
         // Click → buttons still decide what a mouse click does.
         // Ignored while typing in a box or with a popup open.
         var kbFocusRow = null;  // data-row of the focused card/row
@@ -2361,11 +2232,14 @@
             return Array.prototype.slice.call(document.querySelectorAll(sel));
         }
 
-        function kbFocus(row) {
+        function kbFocus(row, shouldScroll) {
             kbFocusRow = row;
             document.querySelectorAll('.kb-focus').forEach(function(el) { el.classList.remove('kb-focus'); });
             var el = kbItems().filter(function(e) { return e.dataset.row === String(row); })[0];
-            if (el) { el.classList.add('kb-focus'); el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+            if (el) {
+                el.classList.add('kb-focus');
+                if (shouldScroll !== false) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            }
             return el;
         }
 
@@ -2403,19 +2277,11 @@
             speakField(text, backEl);
         }
 
-        // Shared by Enter/Space/'/' on a focused row AND by committing a typed card number: run
-        // whatever the active Click → mode does — speak Front/Back, or toggle Known otherwise.
-        // One place for "what does the keyboard do," same as the click handlers reuse these too.
-        function doClickModeAction(item, row) {
-            if (clickMode === 'speakBack') speakBackOfRow(item, row);
-            else if (clickMode === 'speakFront') speakFrontOfRow(item, row);
-            else toggleKnownRow(parseInt(row));
-        }
-
         document.addEventListener('keydown', function(e) {
             var t = e.target;
             if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
             if (e.metaKey || e.ctrlKey || e.altKey) return;
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') return; // let the browser scroll
             if (document.getElementById('keysOverlay').classList.contains('open')) {
                 if (e.key === 'Escape') closeKeysInfo();
                 return;
@@ -2425,7 +2291,7 @@
                 if (e.key === 'Escape') closeDownloadDialog();
                 return;
             }
-            if (document.querySelector('#knownOverlay.open, #dbxCsvOverlay.open, #printOverlay.open')) return;
+            if (document.querySelector('#dbxCsvOverlay.open, #printOverlay.open')) return;
             if (e.key === 'ArrowLeft') { e.preventDefault(); toggleHideMode(); return; }
             var items = kbItems();
             if (!items.length) return;
@@ -2437,17 +2303,14 @@
                 if (e.key === 'Backspace') { e.preventDefault(); numBuf = numBuf.slice(0, -1); numShow(rows); return; }
                 numClear();  // any other key cancels the typed number and does its normal job
             }
-            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-                e.preventDefault();
-                if (i < 0) i = e.key === 'ArrowDown' ? 0 : rows.length - 1;
-                else i = Math.max(0, Math.min(rows.length - 1, i + (e.key === 'ArrowDown' ? 1 : -1)));
-                kbFocus(rows[i]);
-            } else if (e.key === 'Enter' || e.key === '/' || e.key === ' ' || e.key === ',' || e.key === '.') {
+            if (e.key === 'Enter' || e.key === '/' || e.key === ' ' || e.key === ',' || e.key === '.') {
                 e.preventDefault();   // Space would scroll the page otherwise
                 if (i < 0) { i = 0; kbFocus(rows[0]); }   // nothing focused yet: act on the first card
                 if (e.key === 'Enter' || e.key === '/') {
-                    toggleKnownRow(parseInt(rows[i]));
-                    kbFocus(rows[i]);  // keep the highlight after the marks re-render
+                    // Same as →: check the answer without reaching for it. Same guard too, so
+                    // Enter in Table view does nothing rather than marking a row.
+                    if (document.body.classList.contains('cards-hide')
+                        && items[i].classList.contains('csv-card')) revealCard(items[i]);
                 } else if (e.key === ' ') {
                     speakWholeOfRow(items[i], rows[i]);
                 } else if (e.key === ',') {
@@ -2463,10 +2326,8 @@
             }
         });
 
-        // ── TYPE A NUMBER: 15 jumps to card #15 (the # shown on the card) and runs the active
-        //    Click → mode on it — Known toggle, or speak Front/Back — the same thing Enter does
-        //    on a focused card. Commits after a short pause, or at once on Enter / when no
-        //    longer number could fit. ──
+        // Type a card number to select it without starting the mouseover reveal timer.
+        // Commits after a short pause, or at once on Enter / when no longer number could fit.
         var numBuf = '';
         var numTimer = null;
         var NUM_PAUSE_MS = 900;
@@ -2505,12 +2366,50 @@
             }
         }
 
-        // Show a card's answer for 10 seconds, then hide it again (→ or right-click)
+        // Automatic and manual reveals share the same 10-second answer window.
         var REVEAL_MS = 10000;
+        var AUTO_REVEAL_MS = 700;
+        var autoRevealTimer = null;
+        var hoveredCard = null;
+
+        function resetCardReveals() {
+            clearTimeout(autoRevealTimer);
+            autoRevealTimer = null;
+            document.querySelectorAll('#cards-view-wrap .csv-card').forEach(function(card) {
+                clearTimeout(card._revealTimer);
+                card._revealTimer = null;
+                card.classList.remove('revealed');
+            });
+        }
+
+        function scheduleAutoReveal() {
+            clearTimeout(autoRevealTimer);
+            autoRevealTimer = null;
+            var card = hoveredCard;
+            var wrap = document.getElementById('cards-view-wrap');
+            if (!card || !card.isConnected || !card.matches(':hover') || !wrap || wrap.style.display === 'none'
+                || !card.classList.contains('csv-card') || card.classList.contains('revealed')
+                || !document.body.classList.contains('cards-hide')
+                || document.body.classList.contains('front-only') || !card.querySelector('.card-answer')) return;
+            autoRevealTimer = setTimeout(function() {
+                autoRevealTimer = null;
+                if (card.isConnected && hoveredCard === card && card.matches(':hover')) revealCard(card);
+            }, AUTO_REVEAL_MS);
+        }
+
         function revealCard(card) {
+            if (!card || !document.body.classList.contains('cards-hide')
+                || document.body.classList.contains('front-only')) return;
+            if (card === hoveredCard) {
+                clearTimeout(autoRevealTimer);
+                autoRevealTimer = null;
+            }
             clearTimeout(card._revealTimer);
             card.classList.add('revealed');
-            card._revealTimer = setTimeout(function() { card.classList.remove('revealed'); }, REVEAL_MS);
+            card._revealTimer = setTimeout(function() {
+                card._revealTimer = null;
+                card.classList.remove('revealed');
+            }, REVEAL_MS);
         }
 
         function openKeysInfo() { document.getElementById('keysOverlay').classList.add('open'); }
@@ -2548,134 +2447,44 @@
         // on every push, which also makes pushing twice leave the same tab.
         var gsheetFileId = null, gsheetFileName = '', gsheetSheetName = null;
 
-        function xTabName(tab) {
-            var name = /_x$/i.test(tab) ? tab : tab + '_x';   // don't make Sheet1_x_x
-            return name.length > 100 ? name.slice(0, 98) + '_x' : name;   // Sheets title limit
-        }
-
-        function refreshPushXBtn() {
-            var btn = document.getElementById('pushXBtn');
-            if (!btn) return;
-            var ready = !!(gdriveAccessToken && gsheetFileId && gsheetSheetName);
-            btn.disabled = !ready;
-            btn.title = ready
-                ? 'Write this table into "' + gsheetFileName + '" \u2192 tab "' + xTabName(gsheetSheetName)
-                  + '" (created if needed). Your "' + gsheetSheetName + '" tab is never touched.'
-                : 'Sign in with Google and load a spreadsheet first \u2014 then this writes the x column back to it';
-        }
-
-        function gsheetRange(tab) { return encodeURIComponent("'" + tab.replace(/'/g, "''") + "'"); }
-
-        async function pushXToSheet() {
-            if (!gdriveAccessToken) { setGsheetsStatus('Sign in with Google first'); return; }
-            if (!gsheetFileId || !gsheetSheetName) { setGsheetsStatus('Load a Google Sheet first (Push writes back to the one you loaded)'); return; }
-            if (!Object.keys(originalData).length) { setGsheetsStatus('Nothing loaded to push'); return; }
-
-            var rows = currentRows();
-            var marked = rows.filter(function(r, i) { return i > 0 && String(r[MARK_COL] || '').trim(); }).length;
-            var target = xTabName(gsheetSheetName);
-            var api = 'https://sheets.googleapis.com/v4/spreadsheets/' + gsheetFileId;
-            var auth = { Authorization: 'Bearer ' + gdriveAccessToken, 'Content-Type': 'application/json' };
-
-            setGsheetsStatus('Pushing ' + rows.length + ' row(s) to "' + target + '"\u2026');
-            try {
-                // Does the _x tab exist yet?
-                var meta = await fetch(api + '?fields=sheets(properties(title))', { headers: auth });
-                if (!meta.ok) throw new Error(await gsheetErr(meta));
-                var titles = ((await meta.json()).sheets || []).map(function(sh) { return sh.properties.title; });
-                var created = false;
-
-                if (titles.indexOf(target) < 0) {
-                    var add = await fetch(api + ':batchUpdate', {
-                        method: 'POST', headers: auth,
-                        body: JSON.stringify({ requests: [{ addSheet: { properties: { title: target } } }] })
-                    });
-                    if (!add.ok) throw new Error(await gsheetErr(add));
-                    created = true;
-                }
-
-                var range = api + '/values/' + gsheetRange(target);
-                var clr = await fetch(range + ':clear', { method: 'POST', headers: auth });
-                if (!clr.ok) throw new Error(await gsheetErr(clr));
-                var put = await fetch(range + '?valueInputOption=RAW', {
-                    method: 'PUT', headers: auth, body: JSON.stringify({ values: rows })
-                });
-                if (!put.ok) throw new Error(await gsheetErr(put));
-
-                setGsheetsStatus('Pushed to "' + gsheetFileName + '" \u2192 ' + target + (created ? ' (new tab)' : '')
-                    + ' \u00b7 ' + rows.length + ' rows, ' + marked + " x\u2019d");
-                showToast((created ? 'Created tab "' + target + '" \u2014 ' : 'Updated "' + target + '" \u2014 ')
-                    + marked + " x\u2019d row(s)");
-            } catch (err) {
-                setGsheetsStatus('Push failed: ' + err.message);
-                showToast('Push failed: ' + err.message);
-            }
-        }
-
-        async function gsheetErr(resp) {
-            try {
-                var j = await resp.json();
-                var m = j && j.error && j.error.message ? j.error.message : '';
-                if (/insufficient|scope|permission/i.test(m)) return m + ' \u2014 sign out and back in to grant write access';
-                return m || ('HTTP ' + resp.status);
-            } catch (e) { return 'HTTP ' + resp.status; }
-        }
-
-        // ── DOWNLOAD THE SHEET ──────────────────────────────────────────────────────────
-        // One writer, three slices: everything, only the rows marked x, only the rest.
-        // Whichever you pick you get the same shape back — the header row, then matching
-        // rows with col 1 intact — so a file downloaded here loads straight back in here,
-        // and "Only the rows without an x" is the pile still to learn.
-        //
-        // The mark is read from column 1 of the loaded data, never from knownRows, because
-        // col 1 is what every click writes to and what travels with the file.
-        var DL_KINDS = {
-            all:      { label: 'row',          suffix: '_x',       keep: function()    { return true; } },
-            marked:   { label: 'x’d row',      suffix: '_known',   keep: function(row) { return !!String(row[MARK_COL] || '').trim(); } },
-            unmarked: { label: 'unmarked row', suffix: '_unknown', keep: function(row) { return !String(row[MARK_COL] || '').trim(); } }
-        };
-
-        // Header row + the rows this slice keeps. Blank lines are dropped from all three.
-        function dlRowsFor(kind) {
-            var keep = DL_KINDS[kind].keep;
+        // ── DOWNLOAD THE SHEET ─────────────────────────────────────
+        // You get the sheet back in the shape it went in — the header row, then every non-blank
+        // row with col 1 intact — so a file downloaded here loads straight back in here, and
+        // goes into Anki as it is. (It used to offer three slices, the x’d rows and the rest
+        // among them; Anki tracks what you know, so there is nothing here to slice by.)
+        function dlRows() {
             return currentRows().filter(function(row, i) {
                 if (i === 0) return true;
-                if (!row.some(function(c) { return String(c).trim(); })) return false;
-                return keep(row);
+                return row.some(function(c) { return String(c).trim(); });
             });
         }
 
         function openDownloadDialog() {
             if (!Object.keys(originalData).length) { showToast('Load a CSV or xlsx first'); return; }
-            ['all', 'marked', 'unmarked'].forEach(function(kind) {
-                var n = dlRowsFor(kind).length - 1;   // minus the header
-                var cap = kind.charAt(0).toUpperCase() + kind.slice(1);
-                var label = n + (n === 1 ? ' row' : ' rows');
-                var el = document.getElementById('dlCount' + cap);
+            var n = dlRows().length - 1;   // minus the header
+            var label = n + (n === 1 ? ' row' : ' rows');
+            ['dlCountAll', 'dlMdAll'].forEach(function(id) {
+                var el = document.getElementById(id);
                 if (el) el.textContent = label;
-                var md = document.getElementById('dlMd' + cap);
-                if (md) md.textContent = label;
             });
             document.getElementById('downloadOverlay').classList.add('open');
         }
 
         function closeDownloadDialog() { document.getElementById('downloadOverlay').classList.remove('open'); }
 
-        function downloadRows(kind) {
-            var k = DL_KINDS[kind];
-            if (!k) return;
+        function downloadRows() {
             if (!Object.keys(originalData).length) { showToast('Load a CSV or xlsx first'); return; }
-            var rows = dlRowsFor(kind);
-            if (rows.length <= 1) { showToast('No ' + k.label + 's to download'); return; }
+            var rows = dlRows();
+            if (rows.length <= 1) { showToast('No rows to download'); return; }
             var name = (loadedName || 'cards.csv').replace(/[\\/:*?"<>|]/g, '_').replace(/\.[^.]*$/, '');
             var a = document.createElement('a');
             a.href = URL.createObjectURL(new Blob([Papa.unparse(rows)], { type: 'text/csv' }));
-            a.download = name + k.suffix + '.csv';
+            a.download = name + '.csv';
             document.body.appendChild(a); a.click(); a.remove();
             setTimeout(function() { URL.revokeObjectURL(a.href); }, 1000);
             closeDownloadDialog();
             var n = rows.length - 1;
-            showToast('Downloaded ' + a.download + ' — ' + n + ' ' + k.label + (n === 1 ? '' : 's'));
+            showToast('Downloaded ' + a.download + ' — ' + n + ' row' + (n === 1 ? '' : 's'));
         }
 
 
@@ -2686,9 +2495,8 @@
         // ~/.claude/scripts/session_to_md.py writes and csv_to_md.py round-trips -- so the
         // file from this button and the file from that script are the same file.
         //
-        // The text comes from the same dlRowsFor() slice the CSV buttons use, so the marks on
-        // screen decide what is in it, and the raw markdown goes out untouched: nothing here
-        // reads the DOM, where it would be rendered HTML.
+        // The text comes from the same dlRows() the CSV button uses, and the raw markdown goes
+        // out untouched: nothing here reads the DOM, where it would be rendered HTML.
         function markdownFor(rows) {
             var out = [], kept = 0;
             rows.forEach(function(row, i) {
@@ -2705,19 +2513,17 @@
             return { text: out.join('\n'), kept: kept };
         }
 
-        function downloadMarkdown(kind) {
-            var k = DL_KINDS[kind];
-            if (!k) return;
+        function downloadMarkdown() {
             if (!Object.keys(originalData).length) { showToast('Load a CSV or xlsx first'); return; }
-            var rows = dlRowsFor(kind);
+            var rows = dlRows();
             var md = markdownFor(rows);
-            if (!md.kept) { showToast('No ' + k.label + 's to download'); return; }
+            if (!md.kept) { showToast('No rows to download'); return; }
             var name = (loadedName || 'notes.csv').replace(/[\\/:*?"<>|]/g, '_').replace(/\.[^.]*$/, '');
             var head = '# Session notes\n\n---\n\nSource: ' + (loadedName || 'the loaded sheet')
                      + '  \nKept: ' + md.kept + ' of ' + (rows.length - 1) + ' exchanges\n\n---\n\n';
             var a = document.createElement('a');
             a.href = URL.createObjectURL(new Blob([head + md.text], { type: 'text/markdown;charset=utf-8' }));
-            a.download = name + k.suffix + '.md';
+            a.download = name + '.md';
             document.body.appendChild(a); a.click(); a.remove();
             setTimeout(function() { URL.revokeObjectURL(a.href); }, 1000);
             closeDownloadDialog();
@@ -2738,13 +2544,13 @@
         function closePrintDialog() { document.getElementById('printOverlay').classList.remove('open'); }
 
         // [{n: card number as shown (#n), front, back}] in CSV order
-        function printCardList(onlyUnknown) {
+        function printCardList() {
             return Object.keys(originalData).map(Number).sort(function(a, b) { return a - b; }).map(function(r) {
                 if (r === 0) return null;            // header row is not a card
                 if (!rowHasBack(r)) return null;     // section heading, nothing to put on the back
                 var cells = Object.keys(originalData[r]).map(Number).sort(function(a, b) { return a - b; })
                     .map(function(c) { return String(originalData[r][c]).trim(); });
-                if (!cells[NAME_COL] || (onlyUnknown && knownRows[r])) return null;
+                if (!cells[NAME_COL]) return null;
                 return { n: r + 1, front: cells[NAME_COL], back: cells.slice(NAME_COL + 1).filter(Boolean).join('\n') };
             }).filter(Boolean);
         }
@@ -2851,8 +2657,7 @@
         }
 
         function printCards() {
-            var onlyUnknown = document.querySelector('input[name="printPile"]:checked').value === 'unknown';
-            var cards = printCardList(onlyUnknown);
+            var cards = printCardList();
             if (document.getElementById('printTest').checked) cards = cards.slice(0, PRINT_PER_SHEET);
             if (!cards.length) { showToast('No cards to print'); return; }
             var duplex = document.querySelector('input[name="printMode"]:checked').value === 'duplex';
@@ -2867,152 +2672,6 @@
             f.srcdoc = buildPrintHtml(cards, duplex);
             document.body.appendChild(f);
             showToast('Printing ' + cards.length + ' card' + (cards.length !== 1 ? 's' : '') + ' on ' + Math.ceil(cards.length / PRINT_PER_SHEET) + ' sheet(s), ' + (duplex ? 'double-sided' : 'single pages'));
-        }
-
-        document.addEventListener('DOMContentLoaded', function() {
-        });
-
-        function clearKnownRows() {
-            knownRows = {};
-            Object.keys(originalData).forEach(function(r) { if (r !== '0') setRowMark(r, false); });
-            saveKnownRows();
-            applyKnownMarks();
-            renderKnownCards();
-        }
-
-        function knownOneLine(t) { return (t || '').replace(/\s*\n\s*/g, ' / ').replace(/\s+/g, ' ').trim(); }
-
-        function knownCardList() {
-            return Object.keys(originalData).map(function(r) {
-                if (r === '0' || !rowHasBack(r)) return null;   // header / section heading
-                var row = originalData[r];
-                var cols = Object.keys(row).map(Number).sort(function(a, b) { return a - b; });
-                var front = knownOneLine(row[NAME_COL]);
-                if (!front) return null;
-                var back = cols.filter(function(c) { return c > NAME_COL; })
-                    .map(function(c) { return knownOneLine(row[c]); }).filter(Boolean).join(' / ');
-                return { front: front, back: back, known: !!knownRows[r] };
-            }).filter(Boolean);
-        }
-
-        function openKnownCards() {
-            if (!Object.keys(originalData).length) { showToast('Load a CSV first'); return; }
-            document.getElementById('knownCopyBtn').textContent = 'Copy';
-            document.getElementById('knownPromptBtn').textContent = 'Copy + prompt';
-            renderKnownCards();
-            document.getElementById('knownOverlay').classList.add('open');
-        }
-
-        function closeKnownCards() {
-            document.getElementById('knownOverlay').classList.remove('open');
-        }
-
-        function setKnownMode(mode) {
-            knownMode = mode;
-            document.getElementById('knownModeAll').classList.toggle('active', mode === 'all');
-            document.getElementById('knownModeKnown').classList.toggle('active', mode === 'known');
-            document.getElementById('knownModeLearning').classList.toggle('active', mode === 'learning');
-            renderKnownCards();
-        }
-
-        function renderKnownCards() {
-            var all = knownCardList();
-            var cards = all.filter(function(c) {
-                return knownMode === 'all' || (knownMode === 'known' ? c.known : !c.known);
-            });
-            var known = all.filter(function(c) { return c.known; }).length;
-            document.getElementById('knownText').value = (knownMode === 'learning'
-                ? 'CARDS I\'M STILL LEARNING — focus on these:\n'
-                : knownMode === 'known' ? 'CARDS I ALREADY KNOW:\n' : 'MY CARDS:\n') +
-                (cards.length ? cards.map(function(c) { return '- ' + c.front + (c.back ? ' → ' + c.back : ''); }).join('\n') : 'none');
-            document.getElementById('knownInfo').textContent =
-                cards.length + ' card' + (cards.length !== 1 ? 's' : '') + ' listed · ' + known + ' of ' + all.length +
-                ' known · ' + (all.length - known) + ' still learning';
-            renderKnownPrompt();
-        }
-
-        function knownAssembledPrompt() {
-            var list = document.getElementById('knownText').value.trim() || 'CARDS I ALREADY HAVE: none';
-            return SOCRATIC_PROMPT.replace('{{KNOWN}}', list);
-        }
-
-        // Second textarea under the list: the full prompt, kept in sync with the list box
-        function renderKnownPrompt() {
-            var box = document.getElementById('knownPromptText');
-            if (box.style.display !== 'none') box.value = knownAssembledPrompt();
-        }
-
-        function toggleKnownPrompt() {
-            var box = document.getElementById('knownPromptText');
-            var show = box.style.display === 'none';
-            box.style.display = show ? 'block' : 'none';
-            document.getElementById('knownViewPromptBtn').textContent = show ? 'Hide prompt' : 'View prompt';
-            renderKnownPrompt();
-        }
-
-        // "Copy + prompt": the Socratic tutoring prompt with the list above (as edited
-        // in the box) in place of {{KNOWN}}. Same prompt as anki_manager.html.
-        var SOCRATIC_PROMPT = [
-            "You are running a Socratic tutoring dialogue with a key-terms layer. The source material is my Anki cards below; they can be on any subject (a language, science, IT, work, scripture). Start the setup right away; don't wait for more. If I paste extra material later, fold it in.",
-            "",
-            "{{KNOWN}}",
-            "",
-            "SETUP (do this first, then stop):",
-            "1. Read the cards and derive 3-5 learning objectives, phrased as",
-            "   \"Identify X / Describe Y / Explain Z.\"",
-            "2. Pick 8-10 key terms from the cards that I should be able to use (subject terms, or words and grammar patterns for language cards), and that don't already have a card of their own (a card whose Front is just that term). Show only the terms, with no definitions yet.",
-            "3. Show me the objectives and the term list, then say: \"Reply 'start' when ready.\"",
-            "4. Do not teach anything yet.",
-            "",
-            "DIALOGUE RULES:",
-            "- Ask exactly ONE question per turn. Never two.",
-            "- Never explain a concept before I have attempted it.",
-            "- Max 4 sentences of your own content before your next question.",
-            "- Work the objectives in order. Track which are covered.",
-            "- Every question should invite me to answer using at least one term from the list. If I use a list term correctly, note it as \"produced.\" If I describe the idea without the term, note it as \"not produced.\"",
-            "",
-            "RESPONSE FORMULA (every time I answer):",
-            "- Name the specific part I got right. Be precise, not generic praise.",
-            "- Add ONLY the missing piece or correction. One idea, not a summary.",
-            "- Ask the next question.",
-            "",
-            "WHEN I'M WRONG OR VAGUE, escalate across turns. Do not loop:",
-            "  Turn 1: reframe the question or narrow its scope",
-            "  Turn 2: give a concrete hint or partial answer, re-ask",
-            "  Turn 3: state the answer plainly, note it as a gap, move on",
-            "If I say \"stuck,\" jump straight to a hint, a nudge rather than the answer.",
-            "",
-            "ENDING:",
-            "When all objectives are covered, say so, then output:",
-            "  - Strengths: what I demonstrated, with specifics, including terms I produced",
-            "  - Gaps: what I could not produce unaided, and what to review, including terms I did not produce",
-            "Tie both to the objectives you declared at the start.",
-            "",
-            "Then, without being asked, output an Anki CSV file for the terms I did NOT produce:",
-            "  - Two columns only: Front and Back",
-            "  - No header row, no tags column, every field in double quotes",
-            "  - Per term, two cards in a row:",
-            "    1. Production: Front = fill-in-the-blank sentence from the cards, Back = the term",
-            "    2. Recognition: Front = the term, Back = the definition (or translation)",
-            "  - Don't make a card that's already in my list above",
-            "  - Save as a downloadable .csv file"
-        ].join('\n');
-
-        function knownCopyText(text, btn, label) {
-            navigator.clipboard.writeText(text).then(function() {
-                btn.textContent = 'Copied ✓';
-                setTimeout(function() { btn.textContent = label; }, 1500);
-            }).catch(function() { showToast('Failed to copy'); });
-        }
-
-        function copyKnownCards() {
-            knownCopyText(document.getElementById('knownText').value, document.getElementById('knownCopyBtn'), 'Copy');
-        }
-
-        function copyKnownWithPrompt() {
-            var box = document.getElementById('knownPromptText');
-            var text = box.style.display !== 'none' ? box.value : knownAssembledPrompt(); // keep edits made in the prompt box
-            knownCopyText(text, document.getElementById('knownPromptBtn'), 'Copy + prompt');
         }
 
         // ============ TTS (ported from vercel_flashcards/learn-chinese-tts) ============
@@ -3175,7 +2834,6 @@
             document.querySelectorAll('.click-mode-toggle button').forEach(function(btn) {
                 btn.classList.toggle('active', btn.dataset.mode === clickMode);
             });
-            document.body.classList.toggle('known-mode', clickMode === 'known');
             if (window.speechSynthesis) window.speechSynthesis.getVoices(); // warm voice list
         })();
 
@@ -3318,8 +2976,7 @@
         function pickSheet(sheetName) {
             if (pendingWorkbook) {
                 loadSheet(pendingWorkbook, sheetName);
-                gsheetSheetName = sheetName;   // the tab Push x's writes back to
-                refreshPushXBtn();
+                gsheetSheetName = sheetName;
                 closeSheetPicker();
             }
         }
@@ -3352,7 +3009,6 @@
             document.getElementById('gsheetsAuthBtn').textContent = 'Sign Out';
             document.getElementById('gsheetsSearchBtn').disabled = false;
             document.getElementById('recentBtn').disabled = false;
-            refreshPushXBtn();
             if (msg) setGsheetsStatus(msg);
         }
 
@@ -3406,7 +3062,6 @@
                 document.getElementById('gsheetsSearchBtn').disabled = true;
                 document.getElementById('recentBtn').disabled = true;
                 closeRecentDropdown();
-                refreshPushXBtn();
                 setGsheetsStatus('Signed out');
                 return;
             }
@@ -3461,7 +3116,6 @@
                 if (sheetNames.length === 1) {
                     gsheetSheetName = sheetNames[0];
                     loadSheet(workbook, sheetNames[0]);
-                    refreshPushXBtn();
                 } else {
                     pendingWorkbook = workbook;
                     document.getElementById('chooseSheetBtn').style.display = 'inline-block';
