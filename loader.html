@@ -1286,9 +1286,10 @@
         /* Leave a clear gutter beside the cards for scrolling without hovering a card. */
         #cards-view-wrap { padding-left: clamp(56px, 8vw, 120px); }
 
-        /* Hover, click, or a card number selects the target for Enter / →. */
-        .csv-card.kb-focus { outline: 2px solid #3B82F6; outline-offset: 2px; }
-        #csv-table tbody tr.kb-focus td { box-shadow: inset 0 0 0 999px rgba(59,130,246,0.22); }
+        /* Caret browsing (F7) drops a blinking text cursor into whichever card was last
+           clicked. It is only a distraction here — the cards are not editable — so hide it.
+           Inputs and textareas are untouched, so typing still shows a cursor. */
+        #cards-view-wrap, #table-container { caret-color: transparent; }
 
         /* Hide mode: hovering a card for 700ms reveals it; → or right-click reveals immediately. */
         .csv-card .card-hint { display: none; color: #64748b; font-size: 12px; font-style: italic; padding: 4px 8px; }
@@ -1463,29 +1464,30 @@
             and reveal it without switching modes.</p>
             <table>
                 <tr><th colspan="2" style="text-align:left;padding-top:6px;font-size:11px;letter-spacing:.06em;opacity:.6;text-transform:uppercase">Move</th></tr>
-                <tr><td><kbd>Down</kbd> <kbd>Up</kbd></td><td>Scroll the page normally, without changing the selected card</td></tr>
-                <tr><td><kbd>Number keys</kbd></td><td>Type a card number (e.g. type 1 then 5) &mdash; <kbd>Enter</kbd> or a short pause jumps to card #15</td></tr>
+                <tr><td><kbd>Down</kbd> <kbd>Up</kbd></td><td>Scroll the page, 60px a press. Nothing else moves the page &mdash; it stays exactly where you left it.</td></tr>
+                <tr><td><kbd>Number keys</kbd></td><td>Type a card number (e.g. type 1 then 5) &mdash; <kbd>Enter</kbd> or a short pause scrolls card #15 into the middle of the screen</td></tr>
 
                 <tr><th colspan="2" style="text-align:left;padding-top:10px;font-size:11px;letter-spacing:.06em;opacity:.6;text-transform:uppercase">Listen</th></tr>
                 <tr><td><kbd>Space</kbd></td><td><strong>The whole card</strong> &mdash; name, then everything after it, read straight through</td></tr>
                 <tr><td><kbd>Comma</kbd></td><td>Just the <strong>name</strong> (column 2)</td></tr>
                 <tr><td><kbd>Period</kbd></td><td>Just the <strong>back</strong> (column 3 onward)</td></tr>
-                <tr><td colspan="2" style="font-size:12px;opacity:.7">All three read from the file, so they work even while <em>Front only</em> or <em>Hide all</em> is hiding the back.</td></tr>
+                <tr><td colspan="2" style="font-size:12px;opacity:.7">All three read the card under the mouse, straight from the file &mdash; so they work even while <em>Front only</em> or <em>Hide all</em> is hiding the back.</td></tr>
 
                 <tr><th colspan="2" style="text-align:left;padding-top:10px;font-size:11px;letter-spacing:.06em;opacity:.6;text-transform:uppercase">Answers</th></tr>
                 <tr><td>Mouseover</td><td>In study mode, hover over a card for 700ms to reveal its back for 10 seconds. Leaving before 700ms cancels the reveal.</td></tr>
                 <tr><td><kbd>Left</kbd></td><td>Toggle <em>Reveal all / Hide all</em> (switches to Cards view). Reveal all stays on until toggled back.</td></tr>
-                <tr><td><kbd>Right</kbd></td><td>In study mode: reveal the highlighted card immediately for 10 seconds</td></tr>
+                <tr><td><kbd>Right</kbd></td><td>In study mode: reveal the card under the mouse immediately for 10 seconds</td></tr>
                 <tr><td><kbd>Enter</kbd> <kbd>Slash</kbd></td><td>The same reveal, on the hand you already have on the keyboard</td></tr>
 
                 <tr><th colspan="2" style="text-align:left;padding-top:10px;font-size:11px;letter-spacing:.06em;opacity:.6;text-transform:uppercase">Mouse</th></tr>
-                <tr><td>Left click</td><td>Highlight a card, and do whatever <strong>Click &rarr;</strong> is set to</td></tr>
+                <tr><td>Left click</td><td>Do whatever <strong>Click &rarr;</strong> is set to</td></tr>
                 <tr><td>Right click</td><td>In study mode: reveal that card immediately for 10 seconds</td></tr>
                 <tr><td>Scroll gutter</td><td>Use the wider space to the left of the cards to scroll without triggering a reveal</td></tr>
                 <tr><td><kbd>Esc</kbd></td><td>Close this box</td></tr>
             </table>
             <p style="margin:12px 0 0;font-size:12px;opacity:.75">
-            Hover to check an answer; use <kbd>Up</kbd> / <kbd>Down</kbd> or the left gutter to scroll.<br>
+            Hover to check an answer; use <kbd>Up</kbd> / <kbd>Down</kbd> or the left gutter to scroll.
+            Every key above acts on the card the mouse is sitting on &mdash; off a card they do nothing.<br>
             Sheet shape: <strong>col 1</strong> = the filter column &middot; <strong>col 2</strong> = name &middot; <strong>col 3+</strong> = back.
             Keeping track of what you know is Anki&rsquo;s job, not this page&rsquo;s — this page loads the sheet and drills it.</p>
         </div>
@@ -1948,7 +1950,6 @@
         function renderTableFromData(data) {
             resetCardReveals();
             hoveredCard = null;
-            kbFocusRow = null;
             if (!data || data.length === 0) {
                 document.getElementById('table-container').innerHTML = '<p>No data to display</p>';
                 return;
@@ -2056,7 +2057,6 @@
                 card.addEventListener('pointerenter', function(e) {
                     if (e.pointerType !== 'mouse' && e.pointerType !== 'pen') return;
                     hoveredCard = this;
-                    kbFocus(this.dataset.row, false); // hovering must not move the page
                     scheduleAutoReveal();
                 });
                 card.addEventListener('pointerleave', function() {
@@ -2080,14 +2080,12 @@
                     // inside a field was already handled by the field's own listener above.
                     if (copiesBack() && !(e.target.closest && e.target.closest('.card-field'))) {
                         copyToClipboard(backOfRow(parseInt(row)), this);
-                        kbFocus(row);
                         return;
                     }
                     // Left click matches Enter: speaks the whole row's Front/Back no matter
                     // which field inside the card you actually clicked.
                     if (clickMode === 'speakFront') speakFrontOfRow(this, row);
                     else if (clickMode === 'speakBack') speakBackOfRow(this, row);
-                    kbFocus(row);  // left click selects the card for →/Enter
                 });
                 card.addEventListener('contextmenu', function(e) {
                     if (!document.body.classList.contains('cards-hide')) return; // normal menu when not hiding
@@ -2097,7 +2095,6 @@
             });
 
             persistTableData(data);
-            kbFocusRow = null;
             loadedDbxPath = null;  // dbxCsvLoad sets it after this returns
             loadedName = '';
             applyHideMode();
@@ -2128,7 +2125,6 @@
             var fontControls = document.getElementById('cardFontControls');
             if (fontControls) fontControls.style.display = viewType === 'cards' ? 'inline' : 'none';
             localStorage.setItem('csv-view', viewType);
-            if (typeof kbFocusRow !== 'undefined' && kbFocusRow !== null) kbFocus(kbFocusRow);
             scheduleAutoReveal();
         }
 
@@ -2215,32 +2211,36 @@
         }
 
         // ── KEYBOARD ──────────────────────────────────────────────────────────────────────
-        //   ↑ ↓   native page scrolling; these keys never change the selected card
-        //   Enter / '/'   reveal the focused card     Space  speak the whole card (name + back)
-        //   ','   speak the name              '.'    speak the back
-        //   ←  Hide answers on/off            →      reveal the focused card for 10s
-        // These are FIXED: they no longer follow the Click → mode, so one hand can run a session
+        //   ↑ ↓   scroll the page                     Enter / '/'   reveal the card under the mouse
+        //   Space  speak the whole card (name + back)
+        //   ','   speak the name                      '.'    speak the back
+        //   ←  Hide answers on/off                    →      reveal that card for 10s
+        // THE CARD UNDER THE MOUSE is what every one of these acts on. There is no stored
+        // selection: the page used to remember a "focused" card and scroll back to it whenever
+        // the view was rebuilt (← does that), which yanked you to a card you had left two
+        // screens ago. Hovering is the selection, it is already how a card reveals itself, and
+        // it cannot drift away from where you are looking. Off a card, these keys do nothing —
+        // better than acting on a card you cannot see.
+        // These are FIXED: they do not follow the Click → mode, so one hand can run a session
         // (Space to hear it, Enter to check it) without switching modes. The
         // Click → buttons still decide what a mouse click does.
         // Ignored while typing in a box or with a popup open.
-        var kbFocusRow = null;  // data-row of the focused card/row
+        var ARROW_SCROLL_PX = 60;  // how far one ↑/↓ press moves the page
 
-        function kbItems() {
+        function kbSelector() {
             var cards = document.getElementById('cards-view-wrap');
-            var sel = cards && cards.style.display !== 'none'
+            return cards && cards.style.display !== 'none'
                 ? '#cards-view-wrap .csv-card[data-row]' : '#csv-table tbody tr[data-row]';
-            return Array.prototype.slice.call(document.querySelectorAll(sel));
         }
 
-        function kbFocus(row, shouldScroll) {
-            kbFocusRow = row;
-            document.querySelectorAll('.kb-focus').forEach(function(el) { el.classList.remove('kb-focus'); });
-            var el = kbItems().filter(function(e) { return e.dataset.row === String(row); })[0];
-            if (el) {
-                el.classList.add('kb-focus');
-                if (shouldScroll !== false) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-            }
-            return el;
+        function kbItems() {
+            return Array.prototype.slice.call(document.querySelectorAll(kbSelector()));
+        }
+
+        // The card/row the mouse is over, or null. :hover is read live from the browser, so it
+        // is right even after the cards are re-rendered under a motionless pointer.
+        function hoveredItem() {
+            return document.querySelector(kbSelector() + ':hover');
         }
 
         // Speak Front / Speak Back click modes, and Enter/Space/'/': speak the whole row's Front
@@ -2281,7 +2281,6 @@
             var t = e.target;
             if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
             if (e.metaKey || e.ctrlKey || e.altKey) return;
-            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') return; // let the browser scroll
             if (document.getElementById('keysOverlay').classList.contains('open')) {
                 if (e.key === 'Escape') closeKeysInfo();
                 return;
@@ -2292,37 +2291,48 @@
                 return;
             }
             if (document.querySelector('#dbxCsvOverlay.open, #printOverlay.open')) return;
+            // ↑ ↓ scroll the page. We do the scrolling ourselves instead of leaving it to the
+            // browser because with caret browsing on (F7) the browser gives these keys to the
+            // blinking text cursor instead: it crawls line by line through the card and the page
+            // only moves once it runs off the screen. preventDefault takes the keys back, so
+            // scrolling behaves the same whether caret browsing is on or off. Shift+↑/↓ is left
+            // alone so selecting text still works. Neither key ever changes the selected card.
+            if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && !e.shiftKey) {
+                e.preventDefault();
+                window.scrollBy(0, e.key === 'ArrowDown' ? ARROW_SCROLL_PX : -ARROW_SCROLL_PX);
+                return;
+            }
             if (e.key === 'ArrowLeft') { e.preventDefault(); toggleHideMode(); return; }
             var items = kbItems();
             if (!items.length) return;
             var rows = items.map(function(el) { return el.dataset.row; });
-            var i = rows.indexOf(String(kbFocusRow));
             if (/^[0-9]$/.test(e.key)) { e.preventDefault(); numType(e.key, rows); return; }
             if (numBuf) {
                 if (e.key === 'Enter') { e.preventDefault(); numCommit(rows); return; }
                 if (e.key === 'Backspace') { e.preventDefault(); numBuf = numBuf.slice(0, -1); numShow(rows); return; }
                 numClear();  // any other key cancels the typed number and does its normal job
             }
+            var item = hoveredItem();   // null when the pointer is off the cards: then do nothing
             if (e.key === 'Enter' || e.key === '/' || e.key === ' ' || e.key === ',' || e.key === '.') {
                 e.preventDefault();   // Space would scroll the page otherwise
-                if (i < 0) { i = 0; kbFocus(rows[0]); }   // nothing focused yet: act on the first card
+                if (!item) return;
+                var row = item.dataset.row;
                 if (e.key === 'Enter' || e.key === '/') {
                     // Same as →: check the answer without reaching for it. Same guard too, so
                     // Enter in Table view does nothing rather than marking a row.
                     if (document.body.classList.contains('cards-hide')
-                        && items[i].classList.contains('csv-card')) revealCard(items[i]);
+                        && item.classList.contains('csv-card')) revealCard(item);
                 } else if (e.key === ' ') {
-                    speakWholeOfRow(items[i], rows[i]);
+                    speakWholeOfRow(item, row);
                 } else if (e.key === ',') {
-                    speakFrontOfRow(items[i], rows[i]);
+                    speakFrontOfRow(item, row);
                 } else {
-                    speakBackOfRow(items[i], rows[i]);
+                    speakBackOfRow(item, row);
                 }
             } else if (e.key === 'ArrowRight' && document.body.classList.contains('cards-hide')
-                       && items[0].classList.contains('csv-card')) {
+                       && item && item.classList.contains('csv-card')) {
                 e.preventDefault();
-                if (i < 0) { i = 0; kbFocus(rows[0]); }
-                revealCard(items[i]);
+                revealCard(item);
             }
         });
 
@@ -2359,11 +2369,11 @@
             var n = parseInt(numBuf, 10);
             numClear();
             var row = String(n);  // data-row is 1-indexed in both views now, matching the "#N" label exactly
-            if (rows.indexOf(row) >= 0) {
-                kbFocus(row);   // jump only — this also fires on a pause, so it must not mark or speak
-            } else {
-                showToast('No card #' + n);
-            }
+            // Scroll there and nothing else — this also fires on a pause, so it must not mark,
+            // speak, or leave anything selected behind. Hover the card to act on it.
+            var el = document.querySelector(kbSelector() + '[data-row="' + row + '"]');
+            if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            else showToast('No card #' + n);
         }
 
         // Automatic and manual reveals share the same 10-second answer window.

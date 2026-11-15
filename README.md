@@ -72,12 +72,26 @@ into the loader without a column shifting.
 
 In the Flashcards profile, **hover over a card for 700 ms** to reveal its back. Leaving
 the card before 700 ms cancels the timer. The answer stays visible for 10 seconds;
-Right, Enter, Slash, or right-click reveals it immediately. Hovering selects a card
-without moving the page. Selecting by card number or tap/click does not start a timer.
+Right, Enter, Slash, or right-click reveals it immediately.
 
-**Up/Down scroll the page normally**, without moving the card selection. The cards also
-have a wider left gutter (at least 56 px) so you can scroll beside them without hovering
-over a card or touching one on a phone.
+**The card under the mouse is the one the keys act on.** There is no stored selection and
+no highlight: Right, Enter, Slash, Space, Comma and Period all read the hovered card live,
+and off a card they do nothing. The page used to remember a "focused" card and scroll back
+to it whenever the view was rebuilt — which Left does, to toggle Reveal all — so toggling
+from two thirds down the page threw you back up to card 1. Nothing moves the page now
+except Up/Down and typing a card number.
+
+**Up/Down scroll the page**, 60 px a press. The page does
+that scrolling itself rather than leaving the keys to the browser: with
+caret browsing on (F7), the browser hands Up/Down to a blinking text cursor sitting in a
+card, which then crawls line by line while the page stays put. That cursor is hidden in
+the cards and the table too, since nothing there is editable. Shift+Up/Down still selects
+text. The cards also have a wider left gutter (at least 56 px) so you can scroll beside
+them without hovering over a card or touching one on a phone.
+
+**Typing a card number** (e.g. `1`, `5`, then Enter or a short pause) scrolls card #15 into
+the middle of the screen. That is all it does — it selects nothing and starts no reveal
+timer; hover the card once you are there.
 
 **Reveal all** shows every answer and keeps them visible until you press **Hide all**.
 Left toggles the same control. Hide all returns to revealing cards on mouseover.
